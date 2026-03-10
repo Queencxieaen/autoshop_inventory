@@ -1,0 +1,72 @@
+{% extends "inventory/base.html" %}
+
+{% block content %}
+<div class="container py-4">
+
+    <h3 class="fw-bold mb-4">Custom Date Range Summary</h3>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+
+            <form method="POST" class="row g-3 align-items-end">
+                {% csrf_token %}
+
+                <div class="col-md-4">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" name="start_date" class="form-control" required>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">End Date</label>
+                    <input type="date" name="end_date" class="form-control" required>
+                </div>
+
+                <div class="col-md-4">
+                    <button class="btn btn-primary w-100">
+                        Generate Summary
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+    {% if summary %}
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+
+            <h5 class="mb-3">
+                Summary from {{ start_date }} to {{ end_date }}
+            </h5>
+
+            <table class="table table-bordered table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Item</th>
+                        <th class="text-center">Beginning</th>
+                        <th class="text-center">Total In</th>
+                        <th class="text-center">Total Out</th>
+                        <th class="text-center">Ending</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in summary %}
+                    <tr>
+                        <td>{{ item.item_name }}</td>
+                        <td class="text-center">{{ item.beginning }}</td>
+                        <td class="text-center">{{ item.stock_in }}</td>
+                        <td class="text-center">{{ item.stock_out }}</td>
+                        <td class="text-center fw-bold">{{ item.ending }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+
+    {% endif %}
+
+</div>
+{% endblock %}

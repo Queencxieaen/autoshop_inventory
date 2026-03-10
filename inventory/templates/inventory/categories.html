@@ -1,0 +1,165 @@
+{% extends "inventory/base.html" %}
+{% load humanize %}
+{% block content %}
+
+<div class="container py-4">
+
+    <!-- Header (smaller) -->
+    <div class="p-3 rounded-4 text-white mb-4"
+         style="background: linear-gradient(135deg, #0d6efd, #20c997);
+                box-shadow: 0 8px 20px rgba(13,110,253,0.14);">
+        <h4 class="fw-bold mb-1">🗂 Category Management</h4>
+        <p class="mb-0 small opacity-75">
+            Organize and track product categories
+        </p>
+    </div>
+
+    <!-- Actions -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h6 class="fw-semibold mb-0">Overview</h6>
+            <p class="text-muted small mb-0">
+                Total categories
+            </p>
+        </div>
+
+        <a href="{% url 'add_category' %}"
+           class="btn btn-primary btn-sm shadow-sm">
+            + Add Category
+        </a>
+    </div>
+
+    <!-- Stat Card -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0"
+                 style="border-radius: 12px;">
+                <div class="card-body py-3 text-center">
+                    <h6 class="text-muted small mb-1">Total Categories</h6>
+                    <h4 class="fw-bold mb-0">{{ total_categories }}</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search -->
+    <div class="card shadow-sm border-0 mb-3"
+         style="border-radius: 12px;">
+        <div class="card-body p-3">
+            <form method="GET" class="row g-2">
+                <div class="col-md-10">
+                    <input type="text"
+                           name="q"
+                           value="{{ query }}"
+                           class="form-control"
+                           placeholder="Search categories..."
+                           style="border-radius: 10px;">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button class="btn btn-dark"
+                            style="border-radius: 10px;">
+                        Search
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Table Card (Scrollable) -->
+    <div class="card shadow-sm border-0"
+         style="border-radius: 14px;">
+
+        <div class="table-responsive"
+             style="max-height: 350px; overflow-y: auto;">
+
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for category in categories %}
+                    <tr>
+                        <td class="fw-semibold">{{ category.name }}</td>
+                        <td>{{ category.description|default:"—" }}</td>
+                        <td class="text-center">
+
+                            <a href="{% url 'edit_category' category.id %}"
+                               class="btn btn-sm btn-outline-primary me-1">
+                                Edit
+                            </a>
+
+                            <!-- Delete Modal Trigger -->
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-danger"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#deleteModal{{ category.id }}">
+                                Delete
+                            </button>
+
+                            <!-- Modal -->
+                            <div class="modal fade"
+                                 id="deleteModal{{ category.id }}"
+                                 tabindex="-1"
+                                 aria-hidden="true">
+                              <div class="modal-dialog">
+                                <div class="modal-content">
+
+                                  <div class="modal-header">
+                                    <h5 class="modal-title">
+                                        Confirm Delete
+                                    </h5>
+                                    <button type="button"
+                                            class="btn-close"
+                                            data-bs-dismiss="modal">
+                                    </button>
+                                  </div>
+
+                                  <div class="modal-body">
+                                    Are you sure you want to delete
+                                    "<strong>{{ category.name }}</strong>"?
+                                  </div>
+
+                                  <div class="modal-footer">
+                                    <button type="button"
+                                            class="btn btn-secondary"
+                                            data-bs-dismiss="modal">
+                                        Cancel
+                                    </button>
+
+                                    <form method="POST"
+                                          action="{% url 'delete_category' category.id %}">
+                                        {% csrf_token %}
+                                        <button type="submit"
+                                                class="btn btn-danger">
+                                            Yes, Delete
+                                        </button>
+                                    </form>
+                                  </div>
+
+                                </div>
+                              </div>
+                            </div>
+
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center py-3 text-muted">
+                            No categories found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

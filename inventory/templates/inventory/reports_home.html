@@ -1,0 +1,75 @@
+{% extends "inventory/base.html" %}
+{% block content %}
+
+<div class="container py-4">
+
+    <!-- HEADER -->
+    <div class="p-4 rounded-4 text-white mb-4"
+         style="background: linear-gradient(135deg, #0f766e, #14b8a6);
+                box-shadow: 0 10px 25px rgba(15,118,110,0.2);">
+
+        <h3 class="fw-bold mb-1">Inventory Monthly Reports</h3>
+        <p class="mb-0 small opacity-75">
+            Generate and view monthly inventory performance reports.
+        </p>
+    </div>
+
+    <!-- REPORT GENERATOR CARD -->
+    <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-body p-4">
+
+            <!-- FORM NOW SUBMITS TO monthly_detail -->
+            <form method="GET" action="{% url 'monthly_detail' %}">
+                
+                <div class="row g-3">
+
+                    <!-- Year Selection -->
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Select Year</label>
+                        <select name="year" class="form-select rounded-3" required>
+                            <option value="">-- Choose Year --</option>
+                            {% for y in years %}
+                                <option value="{{ y.year }}">{{ y.year }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Month Selection -->
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Select Month</label>
+                        <select name="month" class="form-select rounded-3" required>
+                            <option value="">-- Choose Month --</option>
+                            <option value="1">January</option>
+                            <option value="2">February</option>
+                            <option value="3">March</option>
+                            <option value="4">April</option>
+                            <option value="5">May</option>
+                            <option value="6">June</option>
+                            <option value="7">July</option>
+                            <option value="8">August</option>
+                            <option value="9">September</option>
+                            <option value="10">October</option>
+                            <option value="11">November</option>
+                            <option value="12">December</option>
+                        </select>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="submit"
+                                class="btn w-100 text-white rounded-3"
+                                style="background: #14b8a6;">
+                            View Report
+                        </button>
+                    </div>
+
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

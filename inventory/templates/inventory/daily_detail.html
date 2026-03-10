@@ -1,0 +1,151 @@
+{% extends "inventory/base.html" %}
+{% block title %}Daily Detail{% endblock %}
+{% block page_title %}Daily Detail{% endblock %}
+
+{% block content %}
+
+<style>
+@media print {
+
+    /* Hide everything */
+    body * {
+        display: none;
+    }
+
+    /* Show only report area */
+    #print-area, #print-area * {
+        display: block;
+    }
+
+    #print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+    }
+
+    /* Hide buttons */
+    .no-print {
+        display: none !important;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th, td {
+        border: 1px solid #ccc;
+        padding: 8px;
+    }
+
+    th {
+        background: #f5f5f5;
+    }
+}
+</style>
+
+<div class="container py-4">
+
+<!-- TOP HEADER WITH SHOP NAME AND ACTION BUTTONS -->
+<div class="p-4 rounded-4 text-white mb-4 no-print"
+     style="background: linear-gradient(135deg, #0f766e, #14b8a6);
+            box-shadow: 0 10px 25px rgba(15,118,110,0.2);">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- SHOP NAME -->
+        <div>
+            <h2 class="fw-bold mb-1">{{ shop_name }}</h2>
+            <p class="mb-0 small opacity-75">
+                Daily Inventory Report — {{ snapshot.date }}
+            </p>
+        </div>
+
+        <!-- ACTION BUTTONS -->
+        <div class="d-flex gap-2">
+
+            <!-- EXPORT BUTTON -->
+            <form method="POST" action="{% url 'export_selected_days_pdf' snapshot.date.year snapshot.date.month %}">
+                {% csrf_token %}
+                <input type="hidden" name="selected_dates" value="{{ snapshot.date|date:'Y-m-d' }}">
+
+                <button class="btn btn-danger shadow-sm" type="submit">
+                    📄 Export PDF
+                </button>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<!-- SEARCH BOX -->
+<div class="mb-3 no-print">
+    <input type="text"
+           id="search"
+           class="form-control"
+           placeholder="Search item..."
+           onkeyup="filterItems()">
+</div>
+
+<!-- PRINT AREA (REPORT CONTENT) -->
+<div id="print-area">
+
+    {% if grouped %}
+
+        {% for category, items in grouped.items %}
+            <div class="mb-4 category-block">
+
+                <h4 class="fw-bold text-center mb-3">
+                    {{ category }}
+                </h4>
+
+                <table class="table table-bordered table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Item</th>
+                            <th class="text-center">Beginning</th>
+                            <th class="text-center">Stock In</th>
+                            <th class="text-center">Stock Out</th>
+                            <th class="text-center">Ending</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td class="item-name">{{ item.item.name }}</td>
+                            <td class="text-center">{{ item.beginning_quantity }}</td>
+                            <td class="text-center">{{ item.stock_in }}</td>
+                            <td class="text-center">{{ item.stock_out }}</td>
+                            <td class="text-center {% if item.ending_quantity <= 5 %}text-danger fw-bold{% endif %}">
+                                {{ item.ending_quantity }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+            </div>
+        {% endfor %}
+
+    {% else %}
+        <div class="alert alert-info">
+            No items found for this report.
+        </div>
+    {% endif %}
+
+</div>
+
+</div>
+<script>
+function filterItems() {
+    let input = document.getElementById("search").value.toLowerCase();
+    let rows = document.querySelectorAll("tbody tr");
+
+    rows.forEach(row => {
+        let text = row.textContent.toLowerCase();
+        row.style.display = text.includes(input) ? "" : "none";
+    });
+}
+</script>
+{% endblock %}

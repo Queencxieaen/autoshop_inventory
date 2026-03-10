@@ -1,0 +1,107 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login | Autosthetics</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen flex items-center justify-center"
+      style="background: #0f172a;">
+
+  <div class="absolute inset-0"
+       style="background: radial-gradient(circle at top, #1e293b, #0f172a);">
+  </div>
+
+  <div class="relative z-10 w-full max-w-md px-4">
+
+    <div class="bg-gray-900/80 backdrop-blur-lg border border-gray-800
+                rounded-xl shadow-xl p-8">
+
+      <!-- Header -->
+      <div class="mb-6">
+        <h1 class="text-xl font-semibold text-gray-100">
+          Autosthetics Login
+        </h1>
+        <p class="text-sm text-gray-400">
+          Secure access to inventory system
+        </p>
+      </div>
+
+      <!-- Messages -->
+      {% if messages %}
+        {% for message in messages %}
+          <div class="p-3 mb-4 rounded text-sm
+            {% if message.tags == 'error' %}
+              bg-red-900 text-red-300 border border-red-700
+            {% elif message.tags == 'success' %}
+              bg-green-900 text-green-300 border border-green-700
+            {% else %}
+              bg-blue-900 text-blue-300 border border-blue-700
+            {% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      <!-- Form -->
+      <form method="POST">
+        {% csrf_token %}
+
+        <div class="mb-4">
+          <label class="block text-sm text-gray-300 mb-1">Username</label>
+          <input type="text" name="username"
+                 class="w-full px-4 py-2 rounded bg-gray-800 border border-gray-700
+                        text-gray-200 placeholder-gray-500
+                        focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
+                        outline-none transition"
+                 placeholder="Enter username"
+                 required>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-sm text-gray-300 mb-1">Password</label>
+          <input type="password" name="password"
+                 class="w-full px-4 py-2 rounded bg-gray-800 border border-gray-700
+                        text-gray-200 placeholder-gray-500
+                        focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
+                        outline-none transition"
+                 placeholder="Enter password"
+                 required>
+        </div>
+
+        <!-- Remember Me -->
+        <div class="flex items-center mb-6">
+          <input type="checkbox" id="remember" name="remember"
+                 class="w-4 h-4 text-indigo-500 border-gray-700 rounded">
+          <label for="remember" class="ml-2 text-sm text-gray-400">
+            Remember me
+          </label>
+        </div>
+
+        <button type="submit"
+                class="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold
+                       hover:bg-indigo-700 transition">
+          Login
+        </button>
+      </form>
+
+      <!-- Forgot Password -->
+      <div class="text-center mt-6">
+        <a href="{% url 'password_reset' %}"
+           class="text-sm text-indigo-400 hover:underline">
+          Forgot your password?
+        </a>
+      </div>
+
+      <!-- Footer -->
+      <p class="text-center text-xs text-gray-500 mt-6">
+        Autosthetics Car Care Center © 2026
+      </p>
+
+    </div>
+  </div>
+
+</body>
+</html>

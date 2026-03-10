@@ -1,0 +1,216 @@
+{% extends "inventory/base.html" %}
+{% block title %}Weekly Summary{% endblock %}
+{% block page_title %}Weekly Summary{% endblock %}
+
+{% block content %}
+
+<div class="container py-4">
+
+<!-- HEADER -->
+<div class="p-4 rounded-4 text-white mb-4"
+     style="background: linear-gradient(135deg, #0f766e, #14b8a6);
+            box-shadow: 0 10px 25px rgba(15,118,110,0.2);">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- LEFT: TITLE -->
+        <div>
+            <h2 class="fw-bold mb-1">{{ month_name }} {{ year }}</h2>
+            <p class="mb-0 small opacity-75">
+                Weekly Inventory Summary
+            </p>
+        </div>
+
+        <!-- RIGHT: ACTIONS -->
+        <div class="d-flex gap-2">
+
+            <!-- SELECT MODE (white outline) -->
+            <button id="selectBtn"
+                    type="button"
+                    class="btn btn-outline-light"
+                    onclick="enableSelectMode()">
+                Select Weeks
+            </button>
+
+            <!-- CANCEL -->
+            <button id="cancelBtn"
+                    type="button"
+                    class="btn btn-light d-none"
+                    onclick="disableSelectMode()">
+                Cancel
+            </button>
+
+            <!-- RETURN BUTTON -->
+            <a href="{% url 'reports' %}" class="btn btn-outline-light">
+                Return
+            </a>
+
+        </div>
+
+    </div>
+</div>
+    <!-- SEARCH -->
+    <input type="text"
+           id="search"
+           class="form-control mb-3"
+           placeholder="Search item..."
+           onkeyup="filterItems()">
+
+    <!-- FORM WRAPS ACCORDION -->
+    <form method="POST" action="{% url 'weekly_summary_pdf' %}" id="weekForm">
+        {% csrf_token %}
+
+        <div class="accordion" id="weeklyAccordion">
+
+            {% for week in weeks %}
+            <div class="accordion-item">
+
+                <h2 class="accordion-header" id="heading{{ forloop.counter }}">
+                    <button class="accordion-button collapsed"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#collapse{{ forloop.counter }}"
+                            aria-expanded="false">
+
+                        <!-- CHECKBOX (HIDDEN UNTIL SELECT MODE) -->
+                        <input type="checkbox"
+                               name="selected_weeks"
+                               value="{{ week.start|date:'Y-m-d' }}|{{ week.end|date:'Y-m-d' }}"
+                               class="week-checkbox d-none me-2">
+
+                        {{ week.label }}
+
+                    </button>
+                </h2>
+
+                <div id="collapse{{ forloop.counter }}"
+                     class="accordion-collapse collapse"
+                     data-bs-parent="#weeklyAccordion">
+
+                    <div class="accordion-body">
+
+                        {% if week.categories %}
+
+                            {% for category, items in week.categories.items %}
+                            <div class="accordion-item mb-3">
+
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed"
+                                            type="button"
+                                            data-bs-toggle="collapse"
+                                            data-bs-target="#cat{{ forloop.parentloop.counter }}{{ forloop.counter }}">
+                                        {{ category }}
+                                    </button>
+                                </h2>
+
+                                <div id="cat{{ forloop.parentloop.counter }}{{ forloop.counter }}"
+                                     class="accordion-collapse collapse">
+
+                                    <div class="accordion-body">
+
+                                        <div class="table-responsive"
+                                             style="max-height: 350px; overflow-y: auto;">
+
+                                            <table class="table table-bordered table-hover">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Item</th>
+                                                        <th class="text-center">Beginning</th>
+                                                        <th class="text-center">In</th>
+                                                        <th class="text-center">Out</th>
+                                                        <th class="text-center">Ending</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for name, data in items.items %}
+                                                    <tr>
+                                                        <td class="item-name">
+                                                            {{ name }}
+                                                        </td>
+                                                        <td class="text-center">
+                                                            {{ data.beginning }}
+                                                        </td>
+                                                        <td class="text-center">
+                                                            {{ data.in }}
+                                                        </td>
+                                                        <td class="text-center">
+                                                            {{ data.out }}
+                                                        </td>
+                                                        <td class="text-center {% if data.ending <= 5 %}text-danger fw-bold{% endif %}">
+                                                            {{ data.ending }}
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+
+                                        </div>
+
+                                    </div>
+                                </div>
+
+                            </div>
+                            {% endfor %}
+
+                        {% else %}
+                            <div class="alert alert-info">
+                                No transactions this week.
+                            </div>
+                        {% endif %}
+
+                    </div>
+                </div>
+
+            </div>
+            {% endfor %}
+
+        </div>
+
+        <!-- EXPORT BUTTON (ONLY VISIBLE IN SELECT MODE) -->
+        <div id="exportForm" class="d-none mt-3">
+            <button type="submit" class="btn btn-danger">
+                📄 Export Selected Weeks
+            </button>
+        </div>
+
+    </form>
+
+</div>
+
+<!-- JAVASCRIPT -->
+<script>
+
+function filterItems() {
+    let input = document.getElementById("search").value.toLowerCase();
+    let rows = document.querySelectorAll("tbody tr");
+
+    rows.forEach(row => {
+        let text = row.querySelector(".item-name")?.textContent.toLowerCase() || "";
+        row.style.display = text.includes(input) ? "" : "none";
+    });
+}
+
+function enableSelectMode() {
+    document.querySelectorAll(".week-checkbox").forEach(cb => {
+        cb.classList.remove("d-none");
+    });
+
+    document.getElementById("exportForm").classList.remove("d-none");
+    document.getElementById("selectBtn").classList.add("d-none");
+    document.getElementById("cancelBtn").classList.remove("d-none");
+}
+
+function disableSelectMode() {
+    document.querySelectorAll(".week-checkbox").forEach(cb => {
+        cb.checked = false;
+        cb.classList.add("d-none");
+    });
+
+    document.getElementById("exportForm").classList.add("d-none");
+    document.getElementById("selectBtn").classList.remove("d-none");
+    document.getElementById("cancelBtn").classList.add("d-none");
+}
+
+</script>
+
+{% endblock %}

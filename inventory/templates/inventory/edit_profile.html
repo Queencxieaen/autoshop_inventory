@@ -1,0 +1,75 @@
+{% extends 'inventory/base.html' %}
+{% load static %}
+
+{% block content %}
+
+<div class="container mt-4" style="max-width: 600px;">
+
+    <h3 class="mb-4">👤 Edit Profile</h3>
+
+    <!-- Messages -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-success">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card shadow-sm p-4">
+
+        <form method="POST">
+            {% csrf_token %}
+
+            <div class="mb-3">
+                <label>Username</label>
+                <input type="text"
+                       name="username"
+                       class="form-control"
+                       value="{{ user.username }}"
+                       required>
+            </div>
+
+            <div class="mb-3">
+                <label>Email</label>
+                <input type="email"
+                       name="email"
+                       class="form-control"
+                       value="{{ user.email }}">
+            </div>
+
+            <div class="mb-3">
+                <label>First Name</label>
+                <input type="text"
+                       name="first_name"
+                       class="form-control"
+                       value="{{ user.first_name }}">
+            </div>
+
+            <div class="mb-3">
+                <label>Last Name</label>
+                <input type="text"
+                       name="last_name"
+                       class="form-control"
+                       value="{{ user.last_name }}">
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                <a href="{% url 'settings_page' %}"
+                   class="btn btn-secondary">
+                    Cancel
+                </a>
+
+                <button type="submit"
+                        class="btn btn-warning">
+                    💾 Save Changes
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,121 @@
+{% extends "inventory/base.html" %}
+
+{% block content %}
+
+<div class="container py-4">
+
+    <!-- Header - Gradient Gold -->
+    <div class="p-4 rounded-4 text-white mb-4"
+         style="background: linear-gradient(135deg, #d4af37, #b8860b);">
+        <h1 class="fw-bold fs-4">📊 Dashboard Overview</h1>
+        <p class="mb-0 small opacity-75">
+            Welcome back! Here’s your shop performance today.
+        </p>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-3 text-center">
+                    <h6 class="text-muted small mb-1">Total Items</h6>
+                    <h3 class="fw-bold mb-0">{{ total_items }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-3 text-center">
+                    <h6 class="text-muted small mb-1">Low Stock</h6>
+                    <h3 class="fw-bold text-danger mb-0">{{ low_stock }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-3 text-center">
+                    <h6 class="text-muted small mb-1">Inventory Value</h6>
+                    <h3 class="fw-bold text-success mb-0">₱{{ total_value }}</h3>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- New Interesting Displays -->
+    <div class="row g-3">
+
+        <!-- Inventory Health -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">🩺 Inventory Health</h5>
+                    <p class="text-muted small">
+                        How healthy is your stock?
+                    </p>
+
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>Low Stock Items</span>
+                            <span class="text-danger">{{ low_stock }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>Total Items</span>
+                            <span>{{ total_items }}</span>
+                        </li>
+                    </ul>
+
+                </div>
+            </div>
+        </div>
+
+<!-- Stock Distribution -->
+<div class="col-md-6">
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h5 class="card-title">📦 Stock Distribution</h5>
+            <p class="text-muted small">
+                Overview of stock by category.
+            </p>
+
+            {% if stock_distribution %}
+    <ul>
+    {% for category in stock_distribution %}
+    <li>{{ category.name }} - {{ category.count }}</li>
+    {% endfor %}
+    </ul>
+    {% else %}
+    <p>No category data available yet.</p>
+    {% endif %}
+
+        </div>
+    </div>
+</div>
+        <!-- Quick Insights -->
+        <div class="col-md-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">💡 Quick Insights</h5>
+
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item d-flex justify-content-between">
+                            <span>Items Below Minimum</span>
+                            <span class="text-danger">{{ low_stock }}</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between">
+                        <span>Well-Stocked Items</span>
+                        <span class="text-success">{{ well_stock }}</span>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

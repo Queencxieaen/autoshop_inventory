@@ -1,0 +1,72 @@
+{% extends "inventory/base.html" %}
+
+{% block title %}Add Category{% endblock %}
+
+{% block content %}
+
+<div class="container py-4">
+
+    <!-- Header -->
+    <div class="mb-4">
+        <h1 class="fw-bold mb-1">➕ Add Category</h1>
+        <p class="text-muted mb-0">
+            Create a new inventory category
+        </p>
+    </div>
+
+    <!-- Form Card (small & centered) -->
+    <div class="card shadow-sm border-0 mx-auto"
+         style="max-width: 600px; border-radius: 14px;">
+        <div class="card-body p-4">
+
+            <form method="POST">
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Category Name</label>
+                    {{ form.name }}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Description</label>
+                    {{ form.description }}
+                </div>
+
+                <div class="d-grid mt-3">
+                    <button type="submit"
+                            class="btn btn-dark">
+                        Add Category
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+    <!-- Back Link -->
+    <div class="text-center mt-3">
+        <a href="{% url 'categories' %}" class="text-decoration-none">
+            ← Back to Categories
+        </a>
+    </div>
+
+</div>
+
+<style>
+/* Input styling (compact) */
+form input, form textarea, form select {
+    border-radius: 10px !important;
+    padding: 8px !important;
+}
+
+/* Button hover */
+.btn {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+</style>
+
+{% endblock %}
