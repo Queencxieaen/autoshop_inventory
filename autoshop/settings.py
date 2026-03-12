@@ -17,7 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-e0zmjn*1^=30yp-0t-rg*dp*7sd7$147yrr1p2_uh$7f*6*g08'
 
 # Set DEBUG=True for local testing; False for deployment
-DEBUG = True
+DEBUG = False
 
 # For local development use '*', for Render replace with your domain
 ALLOWED_HOSTS = ['*']
@@ -112,8 +112,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'yourgmail@gmail.com'
-EMAIL_HOST_PASSWORD = 'your-app-password'
+EMAIL_HOST_USER = 'lastiimadoqueencyann01@gmail.com'
+EMAIL_HOST_PASSWORD = 'vpdy gpof vvod braz'
 
 # Default auto field
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
