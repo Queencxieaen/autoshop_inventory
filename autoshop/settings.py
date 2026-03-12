@@ -22,6 +22,10 @@ DEBUG = False
 # For local development use '*', for Render replace with your domain
 ALLOWED_HOSTS = ['*']
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://autoshop-inventory-vqqq.onrender.com'
+]
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -33,9 +37,9 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     'inventory',
     'widget_tweaks',
-    'django_otp',
-    'django_otp.plugins.otp_totp',
-    'two_factor',
+    # 'django_otp',
+    # 'django_otp.plugins.otp_totp',
+    # 'two_factor',
 ]
 
 MIDDLEWARE = [
