@@ -20,7 +20,7 @@ SECRET_KEY = 'django-insecure-e0zmjn*1^=30yp-0t-rg*dp*7sd7$147yrr1p2_uh$7f*6*g08
 DEBUG = False
 
 # For local development use '*', for Render replace with your domain
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['https://autoshop-inventory-vqqq.onrender.com']
 
 CSRF_TRUSTED_ORIGINS = [
     'https://autoshop-inventory-vqqq.onrender.com'
