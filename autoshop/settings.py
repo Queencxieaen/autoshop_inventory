@@ -17,8 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-e0zmjn*1^=30yp-0t-rg*dp*7sd7$147yrr1p2_uh$7f*6*g08'
 
 # Set DEBUG=True for local testing; False for deployment
-DEBUG = False
-
+DEBUG = True
 # For local development use '*', for Render replace with your domain
 ALLOWED_HOSTS = ['https://autoshop-inventory-vqqq.onrender.com']
 
