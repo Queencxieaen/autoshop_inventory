@@ -183,19 +183,23 @@
 <!-- LIVE IMAGE PREVIEW -->
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    const input = document.querySelector('input[type="file"]');
+    const input = document.querySelector('input[name="profile_image"]');
     const preview = document.getElementById('profilePreview');
 
     if (input) {
         input.addEventListener('change', function(e) {
             const file = e.target.files[0];
+
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(event) {
                     preview.src = event.target.result;
                     preview.style.display = "block";
-                };
+                }
                 reader.readAsDataURL(file);
+            } else {
+                preview.src = "";
+                preview.style.display = "none";
             }
         });
     }
