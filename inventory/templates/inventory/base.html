@@ -111,13 +111,12 @@
     <!-- Logo Area -->
     <div class="brand">
         {% if request.user.shopsettings and request.user.shopsettings.profile_image %}
-            <img src="{{ request.user.shopsettings.profile_image.url }}"
-                 class="rounded-circle mb-2"
-                 style="width: 90px; height: 90px; object-fit: cover; border: 2px solid #e5e7eb;">
-        {% else %}
-            <div class="rounded-circle mb-2 mx-auto"
-                 style="width: 90px; height: 90px; background: #e5e7eb;"></div>
-        {% endif %}
+        <img src="{{ request.user.shopsettings.profile_image.url }}"
+            class="rounded-circle mb-2" style="width:90px;height:90px;object-fit:cover;border:2px solid #e5e7eb;">
+         {% else %}
+        <img src="{% static 'images/default-profile.jpg' %}"
+            class="rounded-circle mb-2" style="width:90px;height:90px;object-fit:cover;border:2px solid #e5e7eb;">
+       {% endif %}
 
         <h4>Autosthetics</h4>
         <p class="text-muted small">Inventory System</p>
