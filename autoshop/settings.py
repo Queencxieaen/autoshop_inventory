@@ -36,6 +36,8 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     'inventory',
     'widget_tweaks',
+    'cloudinary',
+    'cloudinary_storage',
     # 'django_otp',
     # 'django_otp.plugins.otp_totp',
     # 'two_factor',
@@ -101,7 +103,16 @@ STATICFILES_DIRS = [
     BASE_DIR / 'inventory' / 'static',  # Your local static files
 ]
 
-# Media files
+# Cloudinary configuration
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': 'dpxnf1jfb',
+    'API_KEY': '418868116925632',
+    'API_SECRET': 'f0BeAhF8Y4pg5',
+}
+
+# MEDIA_URL can stay the same
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
