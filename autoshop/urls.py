@@ -6,7 +6,7 @@ from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from inventory import views
 
-from two_factor.urls import urlpatterns as tf_urls
+# from two_factor.urls import urlpatterns as tf_urls
 
 
 urlpatterns = [
@@ -17,7 +17,7 @@ urlpatterns = [
     # DASHBOARD
     path('', views.dashboard, name='dashboard'),
 
-    path('', include(tf_urls)),
+    # path('', include(tf_urls)),
 
     # CATEGORIES
     path('categories/', views.categories, name='categories'),
