@@ -29,6 +29,9 @@ from reportlab.lib.units import inch
 
 from .models import Item, Category, StockMovement, ShopSettings, DailySnapshot, DailyItemSnapshot
 from .forms import ItemForm, CategoryForm, ShopSettingsForm, AdjustStockForm
+from django.utils import timezone
+
+from .views import create_snapshot  
 
 from django.db.models import Count
 from django.core.mail import send_mail
@@ -379,41 +382,24 @@ def create_snapshot(target_date):
 
 @login_required
 def monthly_detail(request):
-    from django.utils import timezone
-    from datetime import date
-
     year = request.GET.get('year')
     month = request.GET.get('month')
 
-    snapshots = DailySnapshot.objects.all()
-
+    # Auto-create today's snapshot if viewing current month
+    today = timezone.localdate()
     if year and month:
-        snapshots = snapshots.filter(
-            date__year=year,
-            date__month=month
-        ).order_by("date")
+        if int(year) == today.year and int(month) == today.month:
+            create_snapshot(today)
+
+    # Fetch all snapshots for the selected month
+    snapshots = DailySnapshot.objects.filter(
+        date__year=year,
+        date__month=month
+    ).order_by("date")
 
     month_name = ""
     if snapshots.exists():
         month_name = snapshots.first().date.strftime("%B")
-
-    # =========================
-    # AUTO-CREATE TODAY'S SNAPSHOT (efficient)
-    # =========================
-    today = timezone.localdate()
-    if int(year) == today.year and int(month) == today.month:
-        today_snapshot, created = DailySnapshot.objects.get_or_create(date=today)
-
-        # Only create snapshot items if they don't exist
-        if not DailyItemSnapshot.objects.filter(snapshot=today_snapshot).exists():
-            from inventory.views import create_snapshot  # reuse your existing function
-            create_snapshot(today)  # bulk-creates for all items
-
-            # Refresh snapshots query to include today
-            snapshots = DailySnapshot.objects.filter(
-                date__year=year,
-                date__month=month
-            ).order_by("date")
 
     return render(request, "inventory/monthly_detail.html", {
         "snapshots": snapshots,
@@ -421,7 +407,6 @@ def monthly_detail(request):
         "month": month,
         "month_name": month_name,
     })
-    
 
 @login_required
 def daily_detail(request, year, month, day):
