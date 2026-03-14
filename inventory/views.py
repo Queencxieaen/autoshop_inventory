@@ -96,15 +96,15 @@ def edit_profile(request):
 # SETTINGS
 # ===========================
 @login_required
-@login_required
 def settings_page(request):
-    settings, _ = ShopSettings.objects.get_or_create(user=request.user)
+    settings_instance, _ = ShopSettings.objects.get_or_create(user=request.user)
 
     if request.method == "POST":
+        form = ShopSettingsForm(request.POST, request.FILES, instance=settings_instance)
+
+        # Update user fields
         username = request.POST.get("username")
         email = request.POST.get("email")
-
-        # PASSWORD CHANGE
         current_password = request.POST.get("current_password")
         new_password = request.POST.get("new_password")
         confirm_password = request.POST.get("confirm_password")
@@ -112,24 +112,18 @@ def settings_page(request):
         if new_password:
             if not request.user.check_password(current_password):
                 messages.error(request, "Current password is incorrect.")
-                return redirect('settings_page')
-
-            if new_password != confirm_password:
+            elif new_password != confirm_password:
                 messages.error(request, "New passwords do not match.")
-                return redirect('settings_page')
-
-            request.user.set_password(new_password)
-            request.user.save()
-            messages.success(request, "Password updated successfully!")
+            else:
+                request.user.set_password(new_password)
+                request.user.save()
+                messages.success(request, "Password updated successfully!")
 
         if username:
             request.user.username = username
         if email:
             request.user.email = email
-
         request.user.save()
-
-        form = ShopSettingsForm(request.POST, request.FILES, instance=settings)
 
         if form.is_valid():
             form.save()
@@ -137,15 +131,15 @@ def settings_page(request):
             return redirect('settings_page')
         else:
             messages.error(request, "Please correct the errors below.")
-
+    
     else:
-        form = ShopSettingsForm(instance=settings)
+        form = ShopSettingsForm(instance=settings_instance)
 
     return render(request, "inventory/settings.html", {
         "form": form,
         "username": request.user.username,
         "email": request.user.email,
-        "profile_image": settings.profile_image
+        "profile_image": settings_instance.profile_image
     })
 
 
@@ -388,8 +382,19 @@ def monthly_detail(request):
     year = request.GET.get('year')
     month = request.GET.get('month')
 
-    snapshots = DailySnapshot.objects.all()
+    today = timezone.localdate()
 
+    # -----------------------------
+    # AUTO-CREATE TODAY'S SNAPSHOT
+    # -----------------------------
+    if year and month:
+        if int(year) == today.year and int(month) == today.month:
+            from .views import create_snapshot  # optional if you want to rebuild items
+            DailySnapshot.objects.get_or_create(date=today)
+            # You can also call create_snapshot(today) if you want DailyItemSnapshot rows immediately
+
+    # Fetch snapshots for the selected month
+    snapshots = DailySnapshot.objects.all()
     if year and month:
         snapshots = snapshots.filter(
             date__year=year,
@@ -407,21 +412,6 @@ def monthly_detail(request):
         "month_name": month_name,
     })
 
-@login_required
-def daily_detail(request, year, month, day):
-    date_obj = date(year, month, day)
-
-    snapshot = DailySnapshot.objects.filter(date=date_obj).first()
-
-    if not snapshot:
-        snapshot = create_snapshot(date_obj)
-
-    elif not DailyItemSnapshot.objects.filter(snapshot=snapshot).exists():
-        create_snapshot(date_obj)
-        snapshot = DailySnapshot.objects.get(date=date_obj)
-
-    # FIX: Use DailyItemSnapshot (not snapshot.items)
-    items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
 
 @login_required
 def daily_detail(request, year, month, day):
