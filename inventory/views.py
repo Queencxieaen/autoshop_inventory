@@ -382,20 +382,20 @@ def monthly_detail(request):
     year = request.GET.get('year')
     month = request.GET.get('month')
 
+    snapshots = DailySnapshot.objects.all()
+
     today = timezone.localdate()
 
-    # -----------------------------
-    # AUTO-CREATE TODAY'S SNAPSHOT
-    # -----------------------------
+    # Auto-create today's snapshot if viewing current month
     if year and month:
         if int(year) == today.year and int(month) == today.month:
-            from .views import create_snapshot  # optional if you want to rebuild items
-            DailySnapshot.objects.get_or_create(date=today)
-            # You can also call create_snapshot(today) if you want DailyItemSnapshot rows immediately
+            # Create today's snapshot if it doesn't exist
+            today_snapshot, created = DailySnapshot.objects.get_or_create(date=today)
 
-    # Fetch snapshots for the selected month
-    snapshots = DailySnapshot.objects.all()
-    if year and month:
+            # Create daily items for today if none exist
+            if not DailyItemSnapshot.objects.filter(snapshot=today_snapshot).exists():
+                create_snapshot(today)
+
         snapshots = snapshots.filter(
             date__year=year,
             date__month=month
