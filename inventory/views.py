@@ -30,8 +30,7 @@ from reportlab.lib.units import inch
 from .models import Item, Category, StockMovement, ShopSettings, DailySnapshot, DailyItemSnapshot
 from .forms import ItemForm, CategoryForm, ShopSettingsForm, AdjustStockForm
 from django.utils import timezone
-
-from .utils import create_snapshot  
+  
 
 from django.db.models import Count
 from django.core.mail import send_mail
@@ -328,9 +327,10 @@ def reports_home(request):
         'years': years
     })
 
-
 @login_required
 def monthly_detail(request):
+    from .utils import create_snapshot  # <-- local import
+
     year = request.GET.get('year')
     month = request.GET.get('month')
 
@@ -345,29 +345,18 @@ def monthly_detail(request):
         date__year=year,
         date__month=month
     ).order_by("date")
-
-    month_name = ""
-    if snapshots.exists():
-        month_name = snapshots.first().date.strftime("%B")
-
-    return render(request, "inventory/monthly_detail.html", {
-        "snapshots": snapshots,
-        "year": year,
-        "month": month,
-        "month_name": month_name,
-    })
+    
 
 @login_required
 def daily_detail(request, year, month, day):
+    from .utils import create_snapshot  # <-- local import
+
     date_obj = date(year, month, day)
 
     snapshot = DailySnapshot.objects.filter(date=date_obj).first()
 
     if not snapshot:
         snapshot = create_snapshot(date_obj)
-    elif not DailyItemSnapshot.objects.filter(snapshot=snapshot).exists():
-        create_snapshot(date_obj)
-        snapshot = DailySnapshot.objects.get(date=date_obj)
 
     items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
 
@@ -396,13 +385,7 @@ def daily_detail(request, year, month, day):
         "shop_name": shop_name,
     })
 
-    return render(request, "inventory/daily_detail.html", {
-        "snapshot": snapshot,
-        "grouped": grouped,
-        "selected_date": date_obj,
-        "shop_name": shop_name,
-    })
-    
+
 @login_required
 def delete_daily_report(request, date_str):
     if request.method != "POST":
