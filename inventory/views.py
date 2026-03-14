@@ -345,7 +345,7 @@ def monthly_detail(request):
         date__year=year,
         date__month=month
     ).order_by("date")
-     month_name = datetime(int(year), int(month), 1).strftime("%B")
+    month_name = datetime(int(year), int(month), 1).strftime("%B")
 
     return render(request, "inventory/monthly_detail.html", {
         "snapshots": snapshots,
