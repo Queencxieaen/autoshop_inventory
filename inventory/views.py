@@ -329,23 +329,28 @@ def reports_home(request):
 
 @login_required
 def monthly_detail(request):
-    from .utils import create_snapshot  # <-- local import
+    from .utils import create_snapshot
+    from datetime import datetime
+    from django.utils import timezone
 
-    year = request.GET.get('year')
-    month = request.GET.get('month')
+    today = timezone.localdate()
+
+    year = request.GET.get('year', today.year)
+    month = request.GET.get('month', today.month)
+
+    year = int(year)
+    month = int(month)
 
     # Auto-create today's snapshot if viewing current month
-    today = timezone.localdate()
-    if year and month:
-        if int(year) == today.year and int(month) == today.month:
-            create_snapshot(today)
+    if year == today.year and month == today.month:
+        create_snapshot(today)
 
-    # Fetch all snapshots for the selected month
     snapshots = DailySnapshot.objects.filter(
         date__year=year,
         date__month=month
     ).order_by("date")
-    month_name = datetime(int(year), int(month), 1).strftime("%B")
+
+    month_name = datetime(year, month, 1).strftime("%B")
 
     return render(request, "inventory/monthly_detail.html", {
         "snapshots": snapshots,
