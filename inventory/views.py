@@ -323,10 +323,15 @@ def adjust_stock(request, pk=None):
 @login_required
 def reports_home(request):
     years = DailySnapshot.objects.dates('date', 'year', order='DESC')
+
+    today = timezone.localdate()
+
     return render(request, 'inventory/reports_home.html', {
-        'years': years
+        'years': years,
+        'today': today
     })
 
+    
 @login_required
 def monthly_detail(request):
     from .utils import create_snapshot  # <-- local import
