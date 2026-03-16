@@ -330,7 +330,6 @@ def reports_home(request):
         'years': years,
         'today': today
     })
-
     
 @login_required
 def monthly_detail(request):
