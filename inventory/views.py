@@ -371,52 +371,46 @@ def monthly_detail(request):
     return render(request, "inventory/monthly_detail.html", context)
 
     
+
 @login_required
 def daily_detail(request, year, month, day):
     """
-    Display daily inventory report for a given date.
-    Automatically creates a snapshot if one does not exist.
+    Display the daily inventory report for a given date.
+    - Does NOT auto-create snapshots for past dates (prevents loading hangs)
+    - Handles missing snapshots gracefully
+    - Groups items by category and sorts them
     """
     # Convert parameters to date object
     try:
-        date_obj = timezone.datetime(int(year), int(month), int(day)).date()
+        date_obj = timezone.datetime(year, month, day).date()
     except ValueError:
         messages.error(request, "Invalid date provided.")
-        return redirect("reports_home")
+        return redirect('reports_home')
 
-    # Try to get existing snapshot
+    # Get snapshot if it exists
     snapshot = DailySnapshot.objects.filter(date=date_obj).first()
 
-    # Auto-create snapshot if missing
     if not snapshot:
-        # Only allow creating snapshot for today or past dates
-        if date_obj <= timezone.localdate():
-            snapshot = create_snapshot(date_obj)
-            if snapshot:
-                messages.info(request, f"Snapshot for {date_obj} was auto-created.")
-        else:
-            messages.warning(request, "Cannot create snapshot for a future date.")
+        # Snapshot does not exist; show info message instead of freezing
+        messages.info(request, f"No report found for {date_obj}.")
+        grouped = defaultdict(list)
+    else:
+        # Fetch all item snapshots for this date
+        items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
 
-    # Get related items if snapshot exists
-    items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category') if snapshot else []
+        # Group items by category
+        grouped = defaultdict(list)
+        for item in items:
+            category_name = item.item.category.name if item.item.category else "Uncategorized"
+            grouped[category_name].append(item)
 
-    # Group items by category
-    grouped = defaultdict(list)
-    for item in items:
-        category_name = item.item.category.name if item.item.category else "Uncategorized"
-        grouped[category_name].append(item)
+        # Sort items in each category by item name
+        for category in grouped:
+            grouped[category].sort(key=lambda x: x.item.name)
 
-    # Sort items in each category
-    for category in grouped:
-        grouped[category].sort(key=lambda x: x.item.name)
-
-    # Shop info
+    # Get shop name
     shop = ShopSettings.objects.first()
     shop_name = shop.shop_name if shop else "Inventory System"
-
-    # Inform user if no snapshot exists and nothing to display
-    if not snapshot:
-        messages.info(request, f"No report available for {date_obj}.")
 
     return render(request, "inventory/daily_detail.html", {
         "snapshot": snapshot,
