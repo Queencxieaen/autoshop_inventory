@@ -10,7 +10,6 @@ from django.conf import settings
 from .models import PasswordResetOTP
 import random
 
-from django.contrib.auth.models import User
 from django.utils import timezone
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
@@ -29,7 +28,6 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 
 from .models import Item, Category, StockMovement, ShopSettings, DailySnapshot, DailyItemSnapshot
-from .utils import create_snapshot
 from .forms import ItemForm, CategoryForm, ShopSettingsForm, AdjustStockForm
 from django.utils import timezone
   
@@ -297,25 +295,7 @@ def adjust_stock(request, pk=None):
             item.quantity -= quantity
 
         item.save()
-
         StockMovement.objects.create(item=item, quantity=quantity, reason=reason, user=request.user)
-
-        # ------------------------
-        # UPDATE DAILY SNAPSHOT
-        # ------------------------
-        today = timezone.localdate()
-        snapshot = create_snapshot(today)  # ensure snapshot exists
-        di_snapshot, _ = DailyItemSnapshot.objects.get_or_create(snapshot=snapshot, item=item)
-        
-        if reason == 'add':
-            di_snapshot.stock_in += quantity
-        elif reason == 'remove':
-            di_snapshot.stock_out += quantity
-        
-        # recalc ending
-        di_snapshot.ending_quantity = di_snapshot.beginning_quantity + di_snapshot.stock_in - di_snapshot.stock_out
-        di_snapshot.save()
-        # ------------------------
 
         messages.success(request, f"{item.name} stock updated!")
         return redirect('adjust_stock')
@@ -324,6 +304,7 @@ def adjust_stock(request, pk=None):
     today = timezone.localdate()
 
     today_snapshot, _ = DailySnapshot.objects.get_or_create(date=today)
+
     snapshot_items = DailyItemSnapshot.objects.filter(snapshot=today_snapshot).select_related('item')
 
     movements = StockMovement.objects.select_related('item', 'user').order_by('-date')[:20]
@@ -335,6 +316,7 @@ def adjust_stock(request, pk=None):
         "movements": movements
     })
 
+
 # ===========================
 # REPORTS
 # ===========================
@@ -345,85 +327,61 @@ def reports_home(request):
         'years': years
     })
 
-
 @login_required
 def monthly_detail(request):
-    today = timezone.localdate()
+    from .utils import create_snapshot  # <-- local import
 
-    # Get year and month from URL query params
     year = request.GET.get('year')
     month = request.GET.get('month')
 
-    # Default to current year/month if not provided
-    if not year or not month:
-        year = today.year
-        month = today.month
-    else:
-        year = int(year)
-        month = int(month)
+    # Auto-create today's snapshot if viewing current month
+    today = timezone.localdate()
+    if year and month:
+        if int(year) == today.year and int(month) == today.month:
+            create_snapshot(today)
 
-    # Auto-create snapshot only for current month
-    if year == today.year and month == today.month:
-        # Ensure today's snapshot exists
-        from .utils import create_snapshot
-        create_snapshot(today)
-
-    # Fetch snapshots for the month
+    # Fetch all snapshots for the selected month
     snapshots = DailySnapshot.objects.filter(
         date__year=year,
         date__month=month
     ).order_by("date")
+    month_name = datetime(int(year), int(month), 1).strftime("%B")
 
-    # Month name for display
-    month_name = datetime(year, month, 1).strftime("%B")
-
-    context = {
+    return render(request, "inventory/monthly_detail.html", {
         "snapshots": snapshots,
         "year": year,
         "month": month,
         "month_name": month_name,
-    }
-
-    return render(request, "inventory/monthly_detail.html", context)
-
-    
+    })
 
 @login_required
 def daily_detail(request, year, month, day):
-    """
-    Display the daily inventory report for a given date.
-    - Missing snapshots are auto-created.
-    - Beginning quantity is carried over from previous day.
-    - Groups items by category and sorts them.
-    """
-    from .utils import create_snapshot
+    from .utils import create_snapshot  # <-- local import
 
-    # Convert parameters to date object
-    try:
-        date_obj = timezone.datetime(int(year), int(month), int(day)).date()
-    except ValueError:
-        messages.error(request, "Invalid date provided.")
-        return redirect('reports_home')
+    date_obj = date(year, month, day)
 
-    # Get snapshot, create if missing
     snapshot = DailySnapshot.objects.filter(date=date_obj).first()
+
     if not snapshot:
         snapshot = create_snapshot(date_obj)
 
-    # Fetch all item snapshots for this date
     items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
 
-    # Group items by category
-    grouped = defaultdict(list)
+    grouped = {}
+
     for item in items:
         category_name = item.item.category.name if item.item.category else "Uncategorized"
+
+        if category_name not in grouped:
+            grouped[category_name] = []
+
         grouped[category_name].append(item)
 
-    # Sort items in each category by item name
+    # SORT ITEMS A → Z
     for category in grouped:
-        grouped[category].sort(key=lambda x: x.item.name)
+        grouped[category] = sorted(grouped[category], key=lambda x: x.item.name)
 
-    # Get shop name
+    # SHOP NAME (fix)
     shop = ShopSettings.objects.first()
     shop_name = shop.shop_name if shop else "Inventory System"
 
@@ -625,56 +583,64 @@ def monthly_summary_pdf(request, year, month):
 @login_required
 def weekly_summary(request):
     today = timezone.localdate()
+
     month_start = today.replace(day=1)
     month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
     weeks = []
+
     start = month_start
-
-    # Pre-fetch all snapshots and items for the month
-    monthly_snapshots = DailySnapshot.objects.filter(date__range=[month_start, month_end])
-    monthly_items = DailyItemSnapshot.objects.filter(snapshot__in=monthly_snapshots).select_related("item__category")
-
-    # Group items by snapshot date for faster access
-    items_by_date = defaultdict(list)
-    for item in monthly_items:
-        items_by_date[item.snapshot.date].append(item)
 
     while start <= month_end:
         end = start + timedelta(days=6)
+
         if end > month_end:
             end = month_end
 
-        categories = defaultdict(lambda: defaultdict(lambda: {"beginning": 0, "in": 0, "out": 0, "ending": 0}))
+        snapshots = DailySnapshot.objects.filter(date__range=[start, end])
+        items = DailyItemSnapshot.objects.filter(snapshot__in=snapshots)
 
-        # Loop through pre-fetched items in date range
-        for single_date in [start + timedelta(days=i) for i in range((end - start).days + 1)]:
-            for item in items_by_date.get(single_date, []):
-                cat_name = item.item.category.name if item.item.category else "Uncategorized"
-                name = item.item.name
+        # Summarize by category -> item
+        categories = {}
 
-                categories[cat_name][name]["beginning"] += item.beginning_quantity
-                categories[cat_name][name]["in"] += item.stock_in
-                categories[cat_name][name]["out"] += item.stock_out
-                categories[cat_name][name]["ending"] = (
-                    categories[cat_name][name]["beginning"]
-                    + categories[cat_name][name]["in"]
-                    - categories[cat_name][name]["out"]
-                )
+        for item in items:
+            category = item.item.category.name if item.item.category else "Uncategorized"
+            name = item.item.name
+
+            if category not in categories:
+                categories[category] = {}
+
+            if name not in categories[category]:
+                categories[category][name] = {
+                    'beginning': 0,
+                    'in': 0,
+                    'out': 0,
+                    'ending': 0
+                }
+
+            categories[category][name]['beginning'] += item.beginning_quantity
+            categories[category][name]['in'] += item.stock_in
+            categories[category][name]['out'] += item.stock_out
+            
+            categories[category][name]['ending'] = (
+                categories[category][name]['beginning']
+                + categories[category][name]['in']
+                - categories[category][name]['out']
+            )
 
         weeks.append({
-            "label": f"Week: {start.strftime('%B %d, %Y')} - {end.strftime('%B %d, %Y')}",
-            "start": start,
-            "end": end,
-            "categories": categories,
+            'label': f"Week: {start.strftime('%B %d, %Y')} - {end.strftime('%B %d, %Y')}",
+            'start': start,
+            'end': end,
+            'categories': categories
         })
 
         start = end + timedelta(days=1)
 
-    return render(request, "inventory/weekly_summary.html", {
-        "weeks": weeks,
-        "month_name": today.strftime("%B"),
-        "year": today.year,
+    return render(request, 'inventory/weekly_summary.html', {
+        'weeks': weeks,
+        'month_name': today.strftime('%B'),
+        'year': today.year
     })
 
 @login_required
@@ -746,6 +712,8 @@ def weekly_summary_pdf(request):
         base_url=request.build_absolute_uri()
     ).write_pdf()
 
+    response = HttpResponse(pdf_file, content_type='application/pdf')
+        # Build filename label
     filename_parts = []
 
     for week_range in selected_weeks:
@@ -825,38 +793,20 @@ def ajax_stock_movement(request):
     try:
         item = Item.objects.get(pk=item_id)
         quantity = int(quantity)
-
         if reason == 'add':
             item.quantity += quantity
         elif reason in ['remove', 'adjust']:
             item.quantity -= quantity
             if item.quantity < 0:
                 item.quantity = 0
-
         item.save()
         StockMovement.objects.create(item=item, quantity=quantity, reason=reason, user=request.user)
-
-        # ------------------------
-        # UPDATE DAILY SNAPSHOT
-        today = timezone.localdate()
-        snapshot = create_snapshot(today)
-        di_snapshot, _ = DailyItemSnapshot.objects.get_or_create(snapshot=snapshot, item=item)
-
-        if reason == 'add':
-            di_snapshot.stock_in += quantity
-        else:
-            di_snapshot.stock_out += quantity
-
-        di_snapshot.ending_quantity = di_snapshot.beginning_quantity + di_snapshot.stock_in - di_snapshot.stock_out
-        di_snapshot.save()
-        # ------------------------
-
         return JsonResponse({'success': True, 'new_quantity': item.quantity})
     except Item.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Item not found.'})
     except ValueError:
         return JsonResponse({'success': False, 'error': 'Invalid quantity.'})
-        
+
 
 @csrf_exempt
 @require_GET
