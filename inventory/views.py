@@ -518,13 +518,13 @@ def monthly_summary(request, year, month):
 
 @login_required
 def monthly_summary_pdf(request, year, month):
-
     records = DailyItemSnapshot.objects.filter(
         snapshot__date__year=year,
         snapshot__date__month=month
     ).select_related("item__category")
 
     summary = {}
+    category_totals = {}
 
     for record in records:
         category = record.item.category.name if record.item.category else "Uncategorized"
@@ -532,6 +532,7 @@ def monthly_summary_pdf(request, year, month):
 
         if category not in summary:
             summary[category] = {}
+            category_totals[category] = {"beginning": 0, "stock_in": 0, "stock_out": 0, "ending": 0}
 
         if item_name not in summary[category]:
             summary[category][item_name] = {
@@ -543,16 +544,20 @@ def monthly_summary_pdf(request, year, month):
 
         summary[category][item_name]["stock_in"] += record.stock_in
         summary[category][item_name]["stock_out"] += record.stock_out
-
         summary[category][item_name]["ending"] = (
             summary[category][item_name]["beginning"]
             + summary[category][item_name]["stock_in"]
             - summary[category][item_name]["stock_out"]
         )
 
+        # Update category totals
+        category_totals[category]["beginning"] += record.beginning_quantity
+        category_totals[category]["stock_in"] += record.stock_in
+        category_totals[category]["stock_out"] += record.stock_out
+        category_totals[category]["ending"] += summary[category][item_name]["ending"]
+
     shop = ShopSettings.objects.first()
     shop_name = shop.shop_name if shop else "Inventory System"
-
     month_name = datetime(int(year), int(month), 1).strftime("%B")
 
     html_string = render_to_string(
@@ -561,7 +566,8 @@ def monthly_summary_pdf(request, year, month):
             "shop_name": shop_name,
             "month_name": month_name,
             "year": year,
-            "summary": summary
+            "summary": summary,
+            "category_totals": category_totals
         }
     )
 

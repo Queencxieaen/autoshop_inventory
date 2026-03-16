@@ -8,27 +8,33 @@
             font-size: 12px; 
             margin: 20px;
         }
+
         .header { 
             text-align: center; 
             margin-bottom: 30px; 
         }
+
         table { 
             width: 100%; 
             border-collapse: collapse; 
             margin-bottom: 40px; 
         }
+
         th, td { 
             border: 1px solid #ccc; 
             padding: 8px; 
             text-align: center; 
         }
+
         th { 
             background-color: #f2f2f2; 
         }
+
         .low-stock { 
             color: red; 
             font-weight: bold; 
         }
+
         .totals-row { 
             font-weight: bold; 
             background-color: #e6e6e6; 
@@ -56,10 +62,6 @@
             </tr>
         </thead>
         <tbody>
-            {% set total_beginning = 0 %}
-            {% set total_in = 0 %}
-            {% set total_out = 0 %}
-            {% set total_ending = 0 %}
             {% for item, data in items.items %}
             <tr>
                 <td>{{ item }}</td>
@@ -68,17 +70,13 @@
                 <td>{{ data.stock_out }}</td>
                 <td class="{% if data.ending < 5 %}low-stock{% endif %}">{{ data.ending }}</td>
             </tr>
-            {% set total_beginning = total_beginning|add:data.beginning %}
-            {% set total_in = total_in|add:data.stock_in %}
-            {% set total_out = total_out|add:data.stock_out %}
-            {% set total_ending = total_ending|add:data.ending %}
             {% endfor %}
             <tr class="totals-row">
                 <td>Total</td>
-                <td>{{ total_beginning }}</td>
-                <td>{{ total_in }}</td>
-                <td>{{ total_out }}</td>
-                <td>{{ total_ending }}</td>
+                <td>{{ category_totals[category].beginning }}</td>
+                <td>{{ category_totals[category].stock_in }}</td>
+                <td>{{ category_totals[category].stock_out }}</td>
+                <td>{{ category_totals[category].ending }}</td>
             </tr>
         </tbody>
     </table>
