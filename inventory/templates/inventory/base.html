@@ -7,6 +7,14 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
+    .sidebar-profile-pic {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #ccc;
+    }
+
     html, body {
         margin: 0;
         height: 100%;
@@ -109,18 +117,15 @@
 <aside id="sidebar">
 
     <!-- Logo Area -->
-    <div class="brand">
-        {% if request.user.shopsettings and request.user.shopsettings.profile_image %}
-        <img src="{{ request.user.shopsettings.profile_image.url }}"
-            class="rounded-circle mb-2" style="width:90px;height:90px;object-fit:cover;border:2px solid #e5e7eb;">
-         {% else %}
-        <img src="{% static 'images/default-profile.jpg' %}"
-            class="rounded-circle mb-2" style="width:90px;height:90px;object-fit:cover;border:2px solid #e5e7eb;">
-       {% endif %}
-
-        <h4>Autosthetics</h4>
-        <p class="text-muted small">Inventory System</p>
-    </div>
+   <div class="sidebar-profile text-center py-3">
+    {% if request.user.shopsettings.profile_image %}
+        <img src="{{ request.user.shopsettings.profile_image.url }}" alt="Profile Picture" class="sidebar-profile-pic mb-2">
+    {% else %}
+        <img src="{% static 'images/default_profile.png' %}" alt="Profile Picture" class="sidebar-profile-pic mb-2">
+    {% endif %}
+    <h4 class="mb-1">Autosthetics</h4>
+    <p class="text-muted small mb-0">Inventory System</p>
+</div>
 
     <nav class="nav flex-column px-3">
 

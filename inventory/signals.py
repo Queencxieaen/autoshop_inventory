@@ -1,9 +1,21 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.contrib.auth.models import User
 from django.utils import timezone
-from .models import StockMovement, DailySnapshot, DailyItemSnapshot
+from .models import ShopSettings, StockMovement, DailySnapshot, DailyItemSnapshot
+
+# -------------------------
+# Create ShopSettings for new users
+# -------------------------
+@receiver(post_save, sender=User)
+def create_shop_settings(sender, instance, created, **kwargs):
+    if created:
+        ShopSettings.objects.create(user=instance)
 
 
+# -------------------------
+# Update DailyItemSnapshot when StockMovement is created
+# -------------------------
 @receiver(post_save, sender=StockMovement)
 def update_daily_snapshot(sender, instance, created, **kwargs):
     if not created:
