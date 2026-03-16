@@ -35,11 +35,17 @@ Inventory Reports
         </div>
 
         <div class="d-flex gap-2 flex-wrap">
+
             <a href="{% url 'weekly_summary' %}" class="btn btn-outline-light">
                 Weekly Summary
             </a>
-        </div>
 
+            <a href="{% url 'monthly_summary_pdf' today.year today.month %}"
+            class="btn btn-danger">
+                Export Monthly PDF
+            </a>
+
+        </div>
     </div>
 </div>
 
