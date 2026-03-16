@@ -375,40 +375,37 @@ def monthly_detail(request):
 @login_required
 def daily_detail(request, year, month, day):
     """
-    Display the daily inventory report for a given date.
-    - Does NOT auto-create snapshots for past dates (prevents loading hangs)
-    - Handles missing snapshots gracefully
-    - Groups items by category and sorts them
+    Daily inventory report for a given date.
+    Handles missing snapshots gracefully.
     """
-    # Convert parameters to date object
+    from .utils import create_snapshot
+
     try:
-        date_obj = timezone.datetime(year, month, day).date()
+        date_obj = timezone.datetime(int(year), int(month), int(day)).date()
     except ValueError:
         messages.error(request, "Invalid date provided.")
         return redirect('reports_home')
 
-    # Get snapshot if it exists
+    # Auto-create snapshot only if today
+    today = timezone.localdate()
+    if date_obj == today:
+        create_snapshot(today)
+
+    # Get snapshot if exists
     snapshot = DailySnapshot.objects.filter(date=date_obj).first()
+    grouped = defaultdict(list)
 
-    if not snapshot:
-        # Snapshot does not exist; show info message instead of freezing
-        messages.info(request, f"No report found for {date_obj}.")
-        grouped = defaultdict(list)
-    else:
-        # Fetch all item snapshots for this date
+    if snapshot:
         items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
-
-        # Group items by category
-        grouped = defaultdict(list)
         for item in items:
             category_name = item.item.category.name if item.item.category else "Uncategorized"
             grouped[category_name].append(item)
-
-        # Sort items in each category by item name
+        # Sort items by name within each category
         for category in grouped:
             grouped[category].sort(key=lambda x: x.item.name)
+    else:
+        messages.info(request, f"No report found for {date_obj}.")
 
-    # Get shop name
     shop = ShopSettings.objects.first()
     shop_name = shop.shop_name if shop else "Inventory System"
 
@@ -419,6 +416,7 @@ def daily_detail(request, year, month, day):
         "shop_name": shop_name,
     })
 
+    
 @login_required
 def delete_daily_report(request, date_str):
     if request.method != "POST":
