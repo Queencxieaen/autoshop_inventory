@@ -57,7 +57,7 @@
         </thead>
         <tbody>
             {% for item, data in items.items %}
-                {% if item != "_totals" %}
+                {% if item != "totals" %}
                 <tr>
                     <td>{{ item }}</td>
                     <td>{{ data.beginning }}</td>
@@ -69,10 +69,10 @@
             {% endfor %}
             <tr class="totals-row">
                 <td>Total</td>
-                <td>{{ items._totals.beginning }}</td>
-                <td>{{ items._totals.stock_in }}</td>
-                <td>{{ items._totals.stock_out }}</td>
-                <td>{{ items._totals.ending }}</td>
+                <td>{{ items.totals.beginning }}</td>
+                <td>{{ items.totals.stock_in }}</td>
+                <td>{{ items.totals.stock_out }}</td>
+                <td>{{ items.totals.ending }}</td>
             </tr>
         </tbody>
     </table>

@@ -559,7 +559,7 @@ def monthly_summary_pdf(request, year, month):
             - summary[category][item_name]["stock_out"]
         )
 
-    # Compute totals per category inside summary
+    # Compute totals per category (Django-safe key)
     for cat, items in summary.items():
         total = {"beginning": 0, "stock_in": 0, "stock_out": 0, "ending": 0}
         for item, data in items.items():
@@ -567,7 +567,7 @@ def monthly_summary_pdf(request, year, month):
             total["stock_in"] += data["stock_in"]
             total["stock_out"] += data["stock_out"]
             total["ending"] += data["ending"]
-        items["_totals"] = total  # Add totals as a key accessible in template
+        items["totals"] = total  # ✅ key does NOT start with underscore
 
     shop = ShopSettings.objects.first()
     shop_name = shop.shop_name if shop else "Inventory System"
