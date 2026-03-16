@@ -519,44 +519,36 @@ def monthly_summary(request, year, month):
 @login_required
 def monthly_summary_pdf(request, year, month):
 
-    snapshots = DailyItemSnapshot.objects.filter(
+    records = DailyItemSnapshot.objects.filter(
         snapshot__date__year=year,
         snapshot__date__month=month
-    ).select_related('snapshot', 'item__category')
+    ).select_related("item__category")
 
-    # GROUP BY DATE -> CATEGORY -> ITEMS
-    grouped_days = {}
+    summary = {}
 
-    for snap in snapshots:
-        date = snap.snapshot.date
+    for record in records:
+        category = record.item.category.name if record.item.category else "Uncategorized"
+        item_name = record.item.name
 
-        if date not in grouped_days:
-            grouped_days[date] = {}
+        if category not in summary:
+            summary[category] = {}
 
-        category = snap.item.category.name if snap.item.category else "Uncategorized"
-        item_name = snap.item.name
-
-        if category not in grouped_days[date]:
-            grouped_days[date][category] = {}
-
-        if item_name not in grouped_days[date][category]:
-            grouped_days[date][category][item_name] = {
-                "beginning": snap.beginning_quantity,
+        if item_name not in summary[category]:
+            summary[category][item_name] = {
+                "beginning": record.beginning_quantity,
                 "stock_in": 0,
                 "stock_out": 0,
                 "ending": 0,
             }
 
-        grouped_days[date][category][item_name]["stock_in"] += snap.stock_in
-        grouped_days[date][category][item_name]["stock_out"] += snap.stock_out
-        grouped_days[date][category][item_name]["ending"] = snap.ending_quantity
+        summary[category][item_name]["stock_in"] += record.stock_in
+        summary[category][item_name]["stock_out"] += record.stock_out
 
-    days = []
-    for date, categories in grouped_days.items():
-        days.append({
-            "date": date,
-            "grouped": categories
-        })
+        summary[category][item_name]["ending"] = (
+            summary[category][item_name]["beginning"]
+            + summary[category][item_name]["stock_in"]
+            - summary[category][item_name]["stock_out"]
+        )
 
     shop = ShopSettings.objects.first()
     shop_name = shop.shop_name if shop else "Inventory System"
@@ -569,7 +561,7 @@ def monthly_summary_pdf(request, year, month):
             "shop_name": shop_name,
             "month_name": month_name,
             "year": year,
-            "days": days,
+            "summary": summary
         }
     )
 

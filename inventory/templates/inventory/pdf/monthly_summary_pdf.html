@@ -3,40 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            font-size: 12px;
+        body { 
+            font-family: Arial, sans-serif; 
+            font-size: 12px; 
+            margin: 20px;
         }
-
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
+        .header { 
+            text-align: center; 
+            margin-bottom: 30px; 
         }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 40px; 
         }
-
-        th, td {
-            border: 1px solid #ccc;
-            padding: 6px;
-            text-align: center;
+        th, td { 
+            border: 1px solid #ccc; 
+            padding: 8px; 
+            text-align: center; 
         }
-
-        th {
-            background-color: #f2f2f2;
+        th { 
+            background-color: #f2f2f2; 
         }
-
-        .low-stock {
-            color: red;
-            font-weight: bold;
+        .low-stock { 
+            color: red; 
+            font-weight: bold; 
         }
-
-        h4 {
-            text-align: center;
-            margin: 15px 0 8px 0;
+        .totals-row { 
+            font-weight: bold; 
+            background-color: #e6e6e6; 
         }
     </style>
 </head>
@@ -44,13 +39,12 @@
 
 <div class="header">
     <h2>{{ shop_name }}</h2>
-    <p>Monthly Inventory Report</p>
-    <small>{{ month_name }} {{ year }}</small>
+    <h3>Monthly Inventory Report</h3>
+    <p>{{ month_name }} {{ year }}</p>
 </div>
 
-{% for day in days %}
-    <h4>{{ day.date }}</h4>
-
+{% for category, items in summary.items %}
+    <h3>{{ category }}</h3>
     <table>
         <thead>
             <tr>
@@ -62,36 +56,33 @@
             </tr>
         </thead>
         <tbody>
-            {% for item in day.items %}
+            {% set total_beginning = 0 %}
+            {% set total_in = 0 %}
+            {% set total_out = 0 %}
+            {% set total_ending = 0 %}
+            {% for item, data in items.items %}
             <tr>
-                <td style="text-align:left;">{{ item.item.name }}</td>
-                <td>{{ item.beginning_quantity }}</td>
-                <td>{{ item.stock_in }}</td>
-                <td>{{ item.stock_out }}</td>
-                <td class="{% if item.ending_quantity <= 5 %}low-stock{% endif %}">
-                    {{ item.ending_quantity }}
-                </td>
+                <td>{{ item }}</td>
+                <td>{{ data.beginning }}</td>
+                <td>{{ data.stock_in }}</td>
+                <td>{{ data.stock_out }}</td>
+                <td class="{% if data.ending < 5 %}low-stock{% endif %}">{{ data.ending }}</td>
             </tr>
+            {% set total_beginning = total_beginning|add:data.beginning %}
+            {% set total_in = total_in|add:data.stock_in %}
+            {% set total_out = total_out|add:data.stock_out %}
+            {% set total_ending = total_ending|add:data.ending %}
             {% endfor %}
+            <tr class="totals-row">
+                <td>Total</td>
+                <td>{{ total_beginning }}</td>
+                <td>{{ total_in }}</td>
+                <td>{{ total_out }}</td>
+                <td>{{ total_ending }}</td>
+            </tr>
         </tbody>
     </table>
-
 {% endfor %}
-
-<!-- Monthly Totals -->
-<h4>Monthly Totals</h4>
-<table>
-    <tr>
-        <th>Total Stock In</th>
-        <th>Total Stock Out</th>
-        <th>Net Movement</th>
-    </tr>
-    <tr>
-        <td>{{ total_in }}</td>
-        <td>{{ total_out }}</td>
-        <td>{{ net }}</td>
-    </tr>
-</table>
 
 </body>
 </html>
