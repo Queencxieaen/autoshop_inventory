@@ -10,6 +10,7 @@ from django.conf import settings
 from .models import PasswordResetOTP
 import random
 
+from django.contrib.auth.models import User
 from django.utils import timezone
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
@@ -28,6 +29,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 
 from .models import Item, Category, StockMovement, ShopSettings, DailySnapshot, DailyItemSnapshot
+from .utils import create_snapshot
 from .forms import ItemForm, CategoryForm, ShopSettingsForm, AdjustStockForm
 from django.utils import timezone
   
@@ -327,17 +329,16 @@ def reports_home(request):
         'years': years
     })
 
+
 @login_required
 def monthly_detail(request):
-    from .utils import create_snapshot
-
     today = timezone.localdate()
 
-    # Get values from URL
+    # Get year and month from URL query params
     year = request.GET.get('year')
     month = request.GET.get('month')
 
-    # If not provided, use current date
+    # Default to current year/month if not provided
     if not year or not month:
         year = today.year
         month = today.month
@@ -345,17 +346,19 @@ def monthly_detail(request):
         year = int(year)
         month = int(month)
 
-    # Auto-create today's snapshot if current month
+    # Auto-create snapshot only for current month
     if year == today.year and month == today.month:
+        # Ensure today's snapshot exists
+        from .utils import create_snapshot
         create_snapshot(today)
 
-    # Fetch snapshots
+    # Fetch snapshots for the month
     snapshots = DailySnapshot.objects.filter(
         date__year=year,
         date__month=month
     ).order_by("date")
 
-    # Month name (March, April, etc.)
+    # Month name for display
     month_name = datetime(year, month, 1).strftime("%B")
 
     context = {
@@ -367,34 +370,38 @@ def monthly_detail(request):
 
     return render(request, "inventory/monthly_detail.html", context)
 
+    
 @login_required
 def daily_detail(request, year, month, day):
-    from .utils import create_snapshot  # <-- local import
+    # Convert parameters to date object
+    date_obj = timezone.datetime(year, month, day).date()
 
-    date_obj = date(year, month, day)
-
+    # Try to get existing snapshot
     snapshot = DailySnapshot.objects.filter(date=date_obj).first()
 
-    if not snapshot:
+    # Only create snapshot for TODAY if it doesn't exist
+    today = timezone.localdate()
+    if not snapshot and date_obj == today:
         snapshot = create_snapshot(date_obj)
 
-    items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
+    # If snapshot still doesn't exist (old date), just show empty
+    if not snapshot:
+        items = []
+    else:
+        # Pre-fetch related objects to reduce queries
+        items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
 
-    grouped = {}
-
+    # Group items by category
+    grouped = defaultdict(list)
     for item in items:
         category_name = item.item.category.name if item.item.category else "Uncategorized"
-
-        if category_name not in grouped:
-            grouped[category_name] = []
-
         grouped[category_name].append(item)
 
-    # SORT ITEMS A → Z
+    # Sort items in each category by name
     for category in grouped:
-        grouped[category] = sorted(grouped[category], key=lambda x: x.item.name)
+        grouped[category].sort(key=lambda x: x.item.name)
 
-    # SHOP NAME (fix)
+    # Get shop name
     shop = ShopSettings.objects.first()
     shop_name = shop.shop_name if shop else "Inventory System"
 
@@ -596,64 +603,56 @@ def monthly_summary_pdf(request, year, month):
 @login_required
 def weekly_summary(request):
     today = timezone.localdate()
-
     month_start = today.replace(day=1)
     month_end = (month_start + relativedelta(months=1)) - timedelta(days=1)
 
     weeks = []
-
     start = month_start
+
+    # Pre-fetch all snapshots and items for the month
+    monthly_snapshots = DailySnapshot.objects.filter(date__range=[month_start, month_end])
+    monthly_items = DailyItemSnapshot.objects.filter(snapshot__in=monthly_snapshots).select_related("item__category")
+
+    # Group items by snapshot date for faster access
+    items_by_date = defaultdict(list)
+    for item in monthly_items:
+        items_by_date[item.snapshot.date].append(item)
 
     while start <= month_end:
         end = start + timedelta(days=6)
-
         if end > month_end:
             end = month_end
 
-        snapshots = DailySnapshot.objects.filter(date__range=[start, end])
-        items = DailyItemSnapshot.objects.filter(snapshot__in=snapshots)
+        categories = defaultdict(lambda: defaultdict(lambda: {"beginning": 0, "in": 0, "out": 0, "ending": 0}))
 
-        # Summarize by category -> item
-        categories = {}
+        # Loop through pre-fetched items in date range
+        for single_date in [start + timedelta(days=i) for i in range((end - start).days + 1)]:
+            for item in items_by_date.get(single_date, []):
+                cat_name = item.item.category.name if item.item.category else "Uncategorized"
+                name = item.item.name
 
-        for item in items:
-            category = item.item.category.name if item.item.category else "Uncategorized"
-            name = item.item.name
-
-            if category not in categories:
-                categories[category] = {}
-
-            if name not in categories[category]:
-                categories[category][name] = {
-                    'beginning': 0,
-                    'in': 0,
-                    'out': 0,
-                    'ending': 0
-                }
-
-            categories[category][name]['beginning'] += item.beginning_quantity
-            categories[category][name]['in'] += item.stock_in
-            categories[category][name]['out'] += item.stock_out
-            
-            categories[category][name]['ending'] = (
-                categories[category][name]['beginning']
-                + categories[category][name]['in']
-                - categories[category][name]['out']
-            )
+                categories[cat_name][name]["beginning"] += item.beginning_quantity
+                categories[cat_name][name]["in"] += item.stock_in
+                categories[cat_name][name]["out"] += item.stock_out
+                categories[cat_name][name]["ending"] = (
+                    categories[cat_name][name]["beginning"]
+                    + categories[cat_name][name]["in"]
+                    - categories[cat_name][name]["out"]
+                )
 
         weeks.append({
-            'label': f"Week: {start.strftime('%B %d, %Y')} - {end.strftime('%B %d, %Y')}",
-            'start': start,
-            'end': end,
-            'categories': categories
+            "label": f"Week: {start.strftime('%B %d, %Y')} - {end.strftime('%B %d, %Y')}",
+            "start": start,
+            "end": end,
+            "categories": categories,
         })
 
         start = end + timedelta(days=1)
 
-    return render(request, 'inventory/weekly_summary.html', {
-        'weeks': weeks,
-        'month_name': today.strftime('%B'),
-        'year': today.year
+    return render(request, "inventory/weekly_summary.html", {
+        "weeks": weeks,
+        "month_name": today.strftime("%B"),
+        "year": today.year,
     })
 
 @login_required
@@ -725,8 +724,6 @@ def weekly_summary_pdf(request):
         base_url=request.build_absolute_uri()
     ).write_pdf()
 
-    response = HttpResponse(pdf_file, content_type='application/pdf')
-        # Build filename label
     filename_parts = []
 
     for week_range in selected_weeks:
