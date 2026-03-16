@@ -8,33 +8,27 @@
             font-size: 12px; 
             margin: 20px;
         }
-
         .header { 
             text-align: center; 
             margin-bottom: 30px; 
         }
-
         table { 
             width: 100%; 
             border-collapse: collapse; 
             margin-bottom: 40px; 
         }
-
         th, td { 
             border: 1px solid #ccc; 
             padding: 8px; 
             text-align: center; 
         }
-
         th { 
             background-color: #f2f2f2; 
         }
-
         .low-stock { 
             color: red; 
             font-weight: bold; 
         }
-
         .totals-row { 
             font-weight: bold; 
             background-color: #e6e6e6; 
@@ -63,20 +57,22 @@
         </thead>
         <tbody>
             {% for item, data in items.items %}
-            <tr>
-                <td>{{ item }}</td>
-                <td>{{ data.beginning }}</td>
-                <td>{{ data.stock_in }}</td>
-                <td>{{ data.stock_out }}</td>
-                <td class="{% if data.ending < 5 %}low-stock{% endif %}">{{ data.ending }}</td>
-            </tr>
+                {% if item != "_totals" %}
+                <tr>
+                    <td>{{ item }}</td>
+                    <td>{{ data.beginning }}</td>
+                    <td>{{ data.stock_in }}</td>
+                    <td>{{ data.stock_out }}</td>
+                    <td class="{% if data.ending < 5 %}low-stock{% endif %}">{{ data.ending }}</td>
+                </tr>
+                {% endif %}
             {% endfor %}
             <tr class="totals-row">
                 <td>Total</td>
-                <td>{{ category_totals[category].beginning }}</td>
-                <td>{{ category_totals[category].stock_in }}</td>
-                <td>{{ category_totals[category].stock_out }}</td>
-                <td>{{ category_totals[category].ending }}</td>
+                <td>{{ items._totals.beginning }}</td>
+                <td>{{ items._totals.stock_in }}</td>
+                <td>{{ items._totals.stock_out }}</td>
+                <td>{{ items._totals.ending }}</td>
             </tr>
         </tbody>
     </table>

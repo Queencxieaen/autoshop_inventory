@@ -516,23 +516,31 @@ def monthly_summary(request, year, month):
         "month_name": month_name,
     })
 
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from weasyprint import HTML
+from datetime import datetime
+
+from .models import DailyItemSnapshot, ShopSettings
+
 @login_required
 def monthly_summary_pdf(request, year, month):
+    # Fetch all records for the month
     records = DailyItemSnapshot.objects.filter(
         snapshot__date__year=year,
         snapshot__date__month=month
     ).select_related("item__category")
 
     summary = {}
-    category_totals = {}
 
+    # Build summary dict
     for record in records:
         category = record.item.category.name if record.item.category else "Uncategorized"
         item_name = record.item.name
 
         if category not in summary:
             summary[category] = {}
-            category_totals[category] = {"beginning": 0, "stock_in": 0, "stock_out": 0, "ending": 0}
 
         if item_name not in summary[category]:
             summary[category][item_name] = {
@@ -542,6 +550,7 @@ def monthly_summary_pdf(request, year, month):
                 "ending": 0,
             }
 
+        # Update stock in/out and ending
         summary[category][item_name]["stock_in"] += record.stock_in
         summary[category][item_name]["stock_out"] += record.stock_out
         summary[category][item_name]["ending"] = (
@@ -550,11 +559,15 @@ def monthly_summary_pdf(request, year, month):
             - summary[category][item_name]["stock_out"]
         )
 
-        # Update category totals
-        category_totals[category]["beginning"] += record.beginning_quantity
-        category_totals[category]["stock_in"] += record.stock_in
-        category_totals[category]["stock_out"] += record.stock_out
-        category_totals[category]["ending"] += summary[category][item_name]["ending"]
+    # Compute totals per category inside summary
+    for cat, items in summary.items():
+        total = {"beginning": 0, "stock_in": 0, "stock_out": 0, "ending": 0}
+        for item, data in items.items():
+            total["beginning"] += data["beginning"]
+            total["stock_in"] += data["stock_in"]
+            total["stock_out"] += data["stock_out"]
+            total["ending"] += data["ending"]
+        items["_totals"] = total  # Add totals as a key accessible in template
 
     shop = ShopSettings.objects.first()
     shop_name = shop.shop_name if shop else "Inventory System"
@@ -567,7 +580,6 @@ def monthly_summary_pdf(request, year, month):
             "month_name": month_name,
             "year": year,
             "summary": summary,
-            "category_totals": category_totals
         }
     )
 
