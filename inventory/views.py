@@ -297,7 +297,25 @@ def adjust_stock(request, pk=None):
             item.quantity -= quantity
 
         item.save()
+
         StockMovement.objects.create(item=item, quantity=quantity, reason=reason, user=request.user)
+
+        # ------------------------
+        # UPDATE DAILY SNAPSHOT
+        # ------------------------
+        today = timezone.localdate()
+        snapshot = create_snapshot(today)  # ensure snapshot exists
+        di_snapshot, _ = DailyItemSnapshot.objects.get_or_create(snapshot=snapshot, item=item)
+        
+        if reason == 'add':
+            di_snapshot.stock_in += quantity
+        elif reason == 'remove':
+            di_snapshot.stock_out += quantity
+        
+        # recalc ending
+        di_snapshot.ending_quantity = di_snapshot.beginning_quantity + di_snapshot.stock_in - di_snapshot.stock_out
+        di_snapshot.save()
+        # ------------------------
 
         messages.success(request, f"{item.name} stock updated!")
         return redirect('adjust_stock')
@@ -306,7 +324,6 @@ def adjust_stock(request, pk=None):
     today = timezone.localdate()
 
     today_snapshot, _ = DailySnapshot.objects.get_or_create(date=today)
-
     snapshot_items = DailyItemSnapshot.objects.filter(snapshot=today_snapshot).select_related('item')
 
     movements = StockMovement.objects.select_related('item', 'user').order_by('-date')[:20]
@@ -317,7 +334,6 @@ def adjust_stock(request, pk=None):
         "today_snapshot": snapshot_items,
         "movements": movements
     })
-
 
 # ===========================
 # REPORTS
@@ -375,37 +391,39 @@ def monthly_detail(request):
 @login_required
 def daily_detail(request, year, month, day):
     """
-    Daily inventory report for a given date.
-    Handles missing snapshots gracefully.
+    Display the daily inventory report for a given date.
+    - Missing snapshots are auto-created.
+    - Beginning quantity is carried over from previous day.
+    - Groups items by category and sorts them.
     """
     from .utils import create_snapshot
 
+    # Convert parameters to date object
     try:
         date_obj = timezone.datetime(int(year), int(month), int(day)).date()
     except ValueError:
         messages.error(request, "Invalid date provided.")
         return redirect('reports_home')
 
-    # Auto-create snapshot only if today
-    today = timezone.localdate()
-    if date_obj == today:
-        create_snapshot(today)
-
-    # Get snapshot if exists
+    # Get snapshot, create if missing
     snapshot = DailySnapshot.objects.filter(date=date_obj).first()
+    if not snapshot:
+        snapshot = create_snapshot(date_obj)
+
+    # Fetch all item snapshots for this date
+    items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
+
+    # Group items by category
     grouped = defaultdict(list)
+    for item in items:
+        category_name = item.item.category.name if item.item.category else "Uncategorized"
+        grouped[category_name].append(item)
 
-    if snapshot:
-        items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
-        for item in items:
-            category_name = item.item.category.name if item.item.category else "Uncategorized"
-            grouped[category_name].append(item)
-        # Sort items by name within each category
-        for category in grouped:
-            grouped[category].sort(key=lambda x: x.item.name)
-    else:
-        messages.info(request, f"No report found for {date_obj}.")
+    # Sort items in each category by item name
+    for category in grouped:
+        grouped[category].sort(key=lambda x: x.item.name)
 
+    # Get shop name
     shop = ShopSettings.objects.first()
     shop_name = shop.shop_name if shop else "Inventory System"
 
@@ -416,7 +434,7 @@ def daily_detail(request, year, month, day):
         "shop_name": shop_name,
     })
 
-    
+
 @login_required
 def delete_daily_report(request, date_str):
     if request.method != "POST":
@@ -807,20 +825,38 @@ def ajax_stock_movement(request):
     try:
         item = Item.objects.get(pk=item_id)
         quantity = int(quantity)
+
         if reason == 'add':
             item.quantity += quantity
         elif reason in ['remove', 'adjust']:
             item.quantity -= quantity
             if item.quantity < 0:
                 item.quantity = 0
+
         item.save()
         StockMovement.objects.create(item=item, quantity=quantity, reason=reason, user=request.user)
+
+        # ------------------------
+        # UPDATE DAILY SNAPSHOT
+        today = timezone.localdate()
+        snapshot = create_snapshot(today)
+        di_snapshot, _ = DailyItemSnapshot.objects.get_or_create(snapshot=snapshot, item=item)
+
+        if reason == 'add':
+            di_snapshot.stock_in += quantity
+        else:
+            di_snapshot.stock_out += quantity
+
+        di_snapshot.ending_quantity = di_snapshot.beginning_quantity + di_snapshot.stock_in - di_snapshot.stock_out
+        di_snapshot.save()
+        # ------------------------
+
         return JsonResponse({'success': True, 'new_quantity': item.quantity})
     except Item.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Item not found.'})
     except ValueError:
         return JsonResponse({'success': False, 'error': 'Invalid quantity.'})
-
+        
 
 @csrf_exempt
 @require_GET
