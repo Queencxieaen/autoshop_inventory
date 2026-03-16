@@ -373,23 +373,32 @@ def monthly_detail(request):
     
 @login_required
 def daily_detail(request, year, month, day):
+    """
+    Display daily inventory report for a given date.
+    Automatically creates a snapshot if one does not exist.
+    """
     # Convert parameters to date object
-    date_obj = timezone.datetime(year, month, day).date()
+    try:
+        date_obj = timezone.datetime(int(year), int(month), int(day)).date()
+    except ValueError:
+        messages.error(request, "Invalid date provided.")
+        return redirect("reports_home")
 
     # Try to get existing snapshot
     snapshot = DailySnapshot.objects.filter(date=date_obj).first()
 
-    # Only create snapshot for TODAY if it doesn't exist
-    today = timezone.localdate()
-    if not snapshot and date_obj == today:
-        snapshot = create_snapshot(date_obj)
-
-    # If snapshot still doesn't exist (old date), just show empty
+    # Auto-create snapshot if missing
     if not snapshot:
-        items = []
-    else:
-        # Pre-fetch related objects to reduce queries
-        items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
+        # Only allow creating snapshot for today or past dates
+        if date_obj <= timezone.localdate():
+            snapshot = create_snapshot(date_obj)
+            if snapshot:
+                messages.info(request, f"Snapshot for {date_obj} was auto-created.")
+        else:
+            messages.warning(request, "Cannot create snapshot for a future date.")
+
+    # Get related items if snapshot exists
+    items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category') if snapshot else []
 
     # Group items by category
     grouped = defaultdict(list)
@@ -397,13 +406,17 @@ def daily_detail(request, year, month, day):
         category_name = item.item.category.name if item.item.category else "Uncategorized"
         grouped[category_name].append(item)
 
-    # Sort items in each category by name
+    # Sort items in each category
     for category in grouped:
         grouped[category].sort(key=lambda x: x.item.name)
 
-    # Get shop name
+    # Shop info
     shop = ShopSettings.objects.first()
     shop_name = shop.shop_name if shop else "Inventory System"
+
+    # Inform user if no snapshot exists and nothing to display
+    if not snapshot:
+        messages.info(request, f"No report available for {date_obj}.")
 
     return render(request, "inventory/daily_detail.html", {
         "snapshot": snapshot,
@@ -411,7 +424,6 @@ def daily_detail(request, year, month, day):
         "selected_date": date_obj,
         "shop_name": shop_name,
     })
-
 
 @login_required
 def delete_daily_report(request, date_str):
