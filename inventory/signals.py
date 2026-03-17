@@ -1,7 +1,6 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.contrib.auth.models import User
-from django.utils import timezone
 from .models import ShopSettings, StockMovement, DailySnapshot, DailyItemSnapshot
 
 # -------------------------
@@ -21,26 +20,30 @@ def update_daily_snapshot(sender, instance, created, **kwargs):
     if not created:
         return
 
-    today = timezone.localdate()
-    item = instance.item
+    # ✅ Use the actual movement date
+    movement_date = instance.date.date()
 
-    snapshot, _ = DailySnapshot.objects.get_or_create(date=today)
+    # Get or create the snapshot for that date
+    snapshot, _ = DailySnapshot.objects.get_or_create(date=movement_date)
 
+    # Get or create the snapshot item
     snapshot_item, _ = DailyItemSnapshot.objects.get_or_create(
         snapshot=snapshot,
-        item=item,
+        item=instance.item,
         defaults={
-            'beginning_quantity': item.quantity,
+            'beginning_quantity': instance.item.quantity - instance.quantity if instance.reason == "add" else instance.item.quantity + instance.quantity,
             'stock_in': 0,
             'stock_out': 0,
-            'ending_quantity': item.quantity
+            'ending_quantity': instance.item.quantity
         }
     )
 
+    # Update stock_in or stock_out
     if instance.reason == "add":
         snapshot_item.stock_in += instance.quantity
     elif instance.reason in ["remove", "adjust"]:
         snapshot_item.stock_out += instance.quantity
 
-    snapshot_item.ending_quantity = item.quantity
+    # Always update ending quantity
+    snapshot_item.ending_quantity = instance.item.quantity
     snapshot_item.save()
