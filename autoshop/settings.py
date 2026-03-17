@@ -21,7 +21,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
-    'inventory',
+    'inventory.apps.InventoryConfig',
     'widget_tweaks',
     'cloudinary',
     'cloudinary_storage',
