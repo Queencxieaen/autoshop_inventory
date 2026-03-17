@@ -1,11 +1,25 @@
 from django.core.management.base import BaseCommand
+from inventory.models import DailySnapshot, DailyItemSnapshot, Item
 from django.utils import timezone
-from inventory.views import create_snapshot  # use your existing function
 
 class Command(BaseCommand):
-    help = 'Generate daily snapshot for inventory (midnight job)'
+    help = "Create daily snapshot for all items"
 
     def handle(self, *args, **kwargs):
         today = timezone.localdate()
-        create_snapshot(today)
-        self.stdout.write(self.style.SUCCESS('Snapshot created successfully'))  
+        snapshot, created = DailySnapshot.objects.get_or_create(date=today)
+        if not created:
+            self.stdout.write("Daily snapshot already exists for today.")
+            return
+
+        for item in Item.objects.all():
+            DailyItemSnapshot.objects.create(
+                snapshot=snapshot,
+                item=item,
+                beginning_quantity=item.quantity,
+                stock_in=0,
+                stock_out=0,
+                ending_quantity=item.quantity
+            )
+
+        self.stdout.write(f"Daily snapshot created for {today}.")

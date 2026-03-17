@@ -40,10 +40,17 @@ Inventory Reports
                 Weekly Summary
             </a>
 
+            {% if year and month %}
             <a href="{% url 'monthly_summary_pdf' year month %}"
-            class="btn btn-danger">
-            Export Monthly PDF
+               class="btn btn-danger">
+                Export Monthly PDF
             </a>
+            {% else %}
+            <button class="btn btn-danger" disabled>
+                Export Monthly PDF
+            </button>
+            {% endif %}
+
         </div>
     </div>
 </div>
@@ -63,7 +70,7 @@ Inventory Reports
                     <input type="date"
                            name="start_date"
                            class="form-control rounded-3"
-                           value="{{ start_date }}"
+                           value="{{ start_date|default:'' }}"
                            required>
                 </div>
 
@@ -73,7 +80,7 @@ Inventory Reports
                     <input type="date"
                            name="end_date"
                            class="form-control rounded-3"
-                           value="{{ end_date }}"
+                           value="{{ end_date|default:'' }}"
                            required>
                 </div>
 

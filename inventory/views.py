@@ -330,33 +330,43 @@ def reports_home(request):
         'years': years,
         'today': today
     })
-    
-@login_required
+
+@login_required   
 def monthly_detail(request):
-    from .utils import create_snapshot  # <-- local import
-
-    year = request.GET.get('year')
-    month = request.GET.get('month')
-
-    # Auto-create today's snapshot if viewing current month
     today = timezone.localdate()
-    if year and month:
-        if int(year) == today.year and int(month) == today.month:
-            create_snapshot(today)
 
-    # Fetch all snapshots for the selected month
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+
+    try:
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date() if start_date_str else today.replace(day=1)
+    except ValueError:
+        start_date = today.replace(day=1)
+
+    try:
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date() if end_date_str else today
+    except ValueError:
+        end_date = today
+
+    if end_date < start_date:
+        end_date = start_date
+
     snapshots = DailySnapshot.objects.filter(
-        date__year=year,
-        date__month=month
-    ).order_by("date")
-    month_name = datetime(int(year), int(month), 1).strftime("%B")
+        date__range=(start_date, end_date)
+    ).order_by('date')
 
-    return render(request, "inventory/monthly_detail.html", {
-        "snapshots": snapshots,
-        "year": year,
-        "month": month,
-        "month_name": month_name,
-    })
+    year = start_date.year
+    month = start_date.month
+
+    context = {
+        'snapshots': snapshots,
+        'start_date': start_date,
+        'end_date': end_date,
+        'year': year,
+        'month': month,
+    }
+
+    return render(request, 'inventory/monthly_detail.html', context)
 
 @login_required
 def daily_detail(request, year, month, day):
