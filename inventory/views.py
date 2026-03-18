@@ -281,9 +281,11 @@ def low_stock_page(request):
 def adjust_stock(request, pk=None):
     selected_item = get_object_or_404(Item, pk=pk) if pk else None
 
-    # ✅ ALWAYS use create_snapshot (NOT get_or_create directly)
+    # Always get today's snapshot
     today_snapshot = create_snapshot()
-
+    if request.session.get('last_post') == request.POST:
+        return redirect('adjust_stock')
+    request.session['last_post'] = request.POST
     if request.method == "POST":
         item_id = request.POST.get("item")
         quantity = int(request.POST.get("quantity"))
@@ -291,8 +293,8 @@ def adjust_stock(request, pk=None):
 
         item = get_object_or_404(Item, pk=item_id)
 
-        # ✅ Get or create snapshot record BEFORE modifying stock
-        daily_item, _ = DailyItemSnapshot.objects.get_or_create(
+        # Get or create daily snapshot record for this item
+        daily_item, created = DailyItemSnapshot.objects.get_or_create(
             snapshot=today_snapshot,
             item=item,
             defaults={
@@ -303,33 +305,26 @@ def adjust_stock(request, pk=None):
             }
         )
 
-        # 🚨 Validate stock out FIRST
+        # 🚨 Validate stock out
         if reason == "remove" and quantity > item.quantity:
             messages.error(request, "Stock out exceeds available quantity.")
             return redirect('adjust_stock')
 
-        # ✅ Apply stock changes
+        # ✅ Apply stock change first
         if reason == "add":
             item.quantity += quantity
             daily_item.stock_in += quantity
-
         elif reason == "remove":
             item.quantity -= quantity
             daily_item.stock_out += quantity
 
-        # ✅ Save item
         item.save()
 
-        # ✅ ALWAYS recompute ending using formula
-        daily_item.ending_quantity = (
-            daily_item.beginning_quantity
-            + daily_item.stock_in
-            - daily_item.stock_out
-        )
-
+        # ✅ Recalculate ending quantity
+        daily_item.ending_quantity = daily_item.beginning_quantity + daily_item.stock_in - daily_item.stock_out
         daily_item.save()
 
-        # ✅ Record movement (for history table)
+        # Record the movement
         StockMovement.objects.create(
             item=item,
             quantity=quantity,
@@ -340,15 +335,10 @@ def adjust_stock(request, pk=None):
         messages.success(request, f"{item.name} stock updated successfully!")
         return redirect('adjust_stock')
 
-    # ✅ GET request
+    # GET request
     items = Item.objects.all()
-    snapshot_items = DailyItemSnapshot.objects.filter(
-        snapshot=today_snapshot
-    ).select_related("item")
-
-    movements = StockMovement.objects.select_related(
-        'item', 'user'
-    ).order_by('-date')[:20]
+    snapshot_items = DailyItemSnapshot.objects.filter(snapshot=today_snapshot).select_related("item")
+    movements = StockMovement.objects.select_related('item', 'user').order_by('-date')[:20]
 
     return render(request, "inventory/adjust_stock.html", {
         "items": items,
@@ -861,40 +851,45 @@ def ajax_stock_movement(request):
         item = Item.objects.get(pk=item_id)
         quantity = int(quantity)
 
-        today = timezone.localdate()
-        today_snapshot, _ = DailySnapshot.objects.get_or_create(date=today)
+        today_snapshot = create_snapshot()
 
-        # Adjust item quantity
-        if reason == 'add':
-            item.quantity += quantity
-        elif reason in ['remove', 'adjust']:
-            item.quantity -= quantity
-            if item.quantity < 0:
-                item.quantity = 0
-        item.save()
-
-        # Update daily snapshot properly
+        # Get or create the daily snapshot record for this item
         daily_item, _ = DailyItemSnapshot.objects.get_or_create(
             snapshot=today_snapshot,
             item=item,
             defaults={
-                "beginning_quantity": item.quantity - quantity if reason == "add" else item.quantity + quantity,
+                "beginning_quantity": item.quantity,
                 "stock_in": 0,
                 "stock_out": 0,
                 "ending_quantity": item.quantity,
             }
         )
 
+        # Validate stock out
+        if reason == 'remove' and quantity > item.quantity:
+            return JsonResponse({'success': False, 'error': 'Stock out exceeds available quantity.'})
+
+        # Apply stock change
         if reason == 'add':
+            item.quantity += quantity
             daily_item.stock_in += quantity
         elif reason in ['remove', 'adjust']:
+            item.quantity -= quantity
             daily_item.stock_out += quantity
 
+        item.save()
+
+        # Recalculate ending quantity
         daily_item.ending_quantity = daily_item.beginning_quantity + daily_item.stock_in - daily_item.stock_out
         daily_item.save()
 
         # Record movement
-        StockMovement.objects.create(item=item, quantity=quantity, reason=reason, user=request.user)
+        StockMovement.objects.create(
+            item=item,
+            quantity=quantity,
+            reason=reason,
+            user=request.user
+        )
 
         return JsonResponse({'success': True, 'new_quantity': item.quantity})
 
@@ -902,8 +897,7 @@ def ajax_stock_movement(request):
         return JsonResponse({'success': False, 'error': 'Item not found.'})
     except ValueError:
         return JsonResponse({'success': False, 'error': 'Invalid quantity.'})
-
-
+        
 @csrf_exempt
 @require_GET
 def get_item_quantity(request):
