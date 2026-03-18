@@ -1,24 +1,31 @@
+
+from datetime import timedelta
+from django.utils import timezone
 from .models import DailySnapshot, DailyItemSnapshot, Item
 
-def create_snapshot(target_date):
-    snapshot, created = DailySnapshot.objects.get_or_create(date=target_date)
+def create_snapshot(snapshot_date=None):
+    snapshot_date = snapshot_date or timezone.localdate()
     
-    # Find previous snapshot
-    previous_snapshot = DailySnapshot.objects.filter(date__lt=target_date).order_by('-date').first()
-    previous_items = {}
-    if previous_snapshot:
-        previous_items = {di.item.id: di.ending_quantity for di in DailyItemSnapshot.objects.filter(snapshot=previous_snapshot)}
-    
-    for item in Item.objects.all():
-        beginning = previous_items.get(item.id, item.quantity)  # Use previous ending, or current quantity if no previous
-        DailyItemSnapshot.objects.get_or_create(
-            snapshot=snapshot,
-            item=item,
-            defaults={
-                'beginning_quantity': beginning,
-                'stock_in': 0,
-                'stock_out': 0,
-                'ending_quantity': beginning,
-            }
-        )
+    snapshot, created = DailySnapshot.objects.get_or_create(date=snapshot_date)
+
+    if created:
+        yesterday = snapshot_date - timedelta(days=1)
+        prev_snapshot = DailySnapshot.objects.filter(date=yesterday).first()
+
+        for item in Item.objects.all():
+            if prev_snapshot:
+                prev_item_snapshot = prev_snapshot.items.filter(item=item).first()
+                beginning = prev_item_snapshot.ending_quantity if prev_item_snapshot else item.quantity
+            else:
+                beginning = item.quantity
+
+            DailyItemSnapshot.objects.create(
+                snapshot=snapshot,
+                item=item,
+                beginning_quantity=beginning,
+                stock_in=0,
+                stock_out=0,
+                ending_quantity=beginning
+            )
+
     return snapshot
