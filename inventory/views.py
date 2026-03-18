@@ -35,6 +35,7 @@ from django.utils import timezone
 
 from django.db.models import Count
 from django.core.mail import send_mail
+from .utils import create_snapshot
 # ===========================
 # AUTH
 # ===========================
@@ -355,7 +356,7 @@ def adjust_stock(request, pk=None):
         "today_snapshot": snapshot_items,
         "movements": movements
     })
-    
+
 # ===========================
 # REPORTS
 # ===========================
