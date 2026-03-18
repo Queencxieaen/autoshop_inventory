@@ -1,4 +1,5 @@
 import csv
+import logging
 from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
 from collections import defaultdict
@@ -30,7 +31,7 @@ from reportlab.lib.units import inch
 from .models import Item, Category, StockMovement, ShopSettings, DailySnapshot, DailyItemSnapshot
 from .forms import ItemForm, CategoryForm, ShopSettingsForm, AdjustStockForm
 from django.utils import timezone
-  
+
 
 from django.db.models import Count
 from django.core.mail import send_mail
@@ -277,7 +278,7 @@ def low_stock_page(request):
 
 @login_required
 def adjust_stock(request, pk=None):
-    from .utils import create_snapshot  # use your existing function
+    from .utils import create_snapshot
 
     selected_item = get_object_or_404(Item, pk=pk) if pk else None
 
@@ -285,10 +286,9 @@ def adjust_stock(request, pk=None):
         item_id = request.POST.get("item")
         quantity = int(request.POST.get("quantity"))
         reason = request.POST.get("reason")
-
         item = get_object_or_404(Item, pk=item_id)
 
-        # Update actual stock
+        # Update stock
         if reason == 'add':
             item.quantity += quantity
         elif reason == 'remove':
@@ -296,13 +296,23 @@ def adjust_stock(request, pk=None):
                 messages.error(request, "Stock out exceeds available quantity.")
                 return render(request, "inventory/adjust_stock.html")
             item.quantity -= quantity
-
         item.save()
         StockMovement.objects.create(item=item, quantity=quantity, reason=reason, user=request.user)
 
-        # --- Update Daily Snapshot ---
-        today_snapshot = create_snapshot()  # ensures today snapshot exists
-        item_snapshot = DailyItemSnapshot.objects.get(snapshot=today_snapshot, item=item)
+        # Update daily snapshot safely
+        today_snapshot = create_snapshot()
+        try:
+            item_snapshot = DailyItemSnapshot.objects.get(snapshot=today_snapshot, item=item)
+        except DailyItemSnapshot.DoesNotExist:
+            # fallback (should not happen, but safe)
+            item_snapshot = DailyItemSnapshot.objects.create(
+                snapshot=today_snapshot,
+                item=item,
+                beginning_quantity=item.quantity,
+                stock_in=0,
+                stock_out=0,
+                ending_quantity=item.quantity
+            )
 
         if reason == 'add':
             item_snapshot.stock_in += quantity
@@ -312,15 +322,12 @@ def adjust_stock(request, pk=None):
             item_snapshot.ending_quantity -= quantity
 
         item_snapshot.save()
-        # ----------------------------
-
         messages.success(request, f"{item.name} stock updated!")
         return redirect('adjust_stock')
 
     items = Item.objects.all()
-    today_snapshot = create_snapshot()  # ensures snapshot exists for display
+    today_snapshot = create_snapshot()
     snapshot_items = DailyItemSnapshot.objects.filter(snapshot=today_snapshot).select_related('item')
-
     movements = StockMovement.objects.select_related('item', 'user').order_by('-date')[:20]
 
     return render(request, "inventory/adjust_stock.html", {
@@ -332,20 +339,21 @@ def adjust_stock(request, pk=None):
 # ===========================
 # REPORTS
 # ===========================
+logger = logging.getLogger(__name__)
 @login_required
 def reports_home(request):
-    from .utils import create_snapshot  # keep your local import
-
-    # Auto-create today’s snapshot
-    today_snapshot = create_snapshot()
+    from .utils import create_snapshot
 
     years = DailySnapshot.objects.dates('date', 'year', order='DESC')
+
     today = timezone.localdate()
+
+    # Lazy snapshot creation: only create if not exists
+    DailySnapshot.objects.filter(date=today).first() or create_snapshot(today)
 
     return render(request, 'inventory/reports_home.html', {
         'years': years,
-        'today': today,
-        'today_snapshot': today_snapshot,
+        'today': today
     })
 
 @login_required   
@@ -825,7 +833,7 @@ def custom_summary(request):
 @require_POST
 @login_required
 def ajax_stock_movement(request):
-    from .utils import create_snapshot  # use your existing function
+    from .utils import create_snapshot
 
     item_id = request.POST.get('item_id')
     quantity = request.POST.get('quantity')
@@ -838,20 +846,28 @@ def ajax_stock_movement(request):
         item = Item.objects.get(pk=item_id)
         quantity = int(quantity)
 
-        # Update actual stock
         if reason == 'add':
             item.quantity += quantity
         elif reason in ['remove', 'adjust']:
             item.quantity -= quantity
             if item.quantity < 0:
                 item.quantity = 0
-
         item.save()
         StockMovement.objects.create(item=item, quantity=quantity, reason=reason, user=request.user)
 
-        # --- Update Daily Snapshot ---
-        today_snapshot = create_snapshot()  # ensures today snapshot exists
-        item_snapshot = DailyItemSnapshot.objects.get(snapshot=today_snapshot, item=item)
+        # Update daily snapshot safely
+        today_snapshot = create_snapshot()
+        try:
+            item_snapshot = DailyItemSnapshot.objects.get(snapshot=today_snapshot, item=item)
+        except DailyItemSnapshot.DoesNotExist:
+            item_snapshot = DailyItemSnapshot.objects.create(
+                snapshot=today_snapshot,
+                item=item,
+                beginning_quantity=item.quantity,
+                stock_in=0,
+                stock_out=0,
+                ending_quantity=item.quantity
+            )
 
         if reason == 'add':
             item_snapshot.stock_in += quantity
@@ -859,15 +875,14 @@ def ajax_stock_movement(request):
         elif reason in ['remove', 'adjust']:
             item_snapshot.stock_out += quantity
             item_snapshot.ending_quantity -= quantity
-
         item_snapshot.save()
-        # ----------------------------
 
         return JsonResponse({'success': True, 'new_quantity': item.quantity})
     except Item.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Item not found.'})
     except ValueError:
         return JsonResponse({'success': False, 'error': 'Invalid quantity.'})
+
 
 @csrf_exempt
 @require_GET
