@@ -703,7 +703,6 @@ def weekly_summary_pdf(request):
     weeks_data = []
 
     for week_range in selected_weeks:
-
         start_str, end_str = week_range.split("|")
         start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
         end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
@@ -744,16 +743,16 @@ def weekly_summary_pdf(request):
         })
 
     shop = ShopSettings.objects.first()
-
     shop_name = shop.shop_name if shop else "Inventory System"
     logo_url = shop.profile_image.url if shop and shop.profile_image else None
 
+    # ✅ Fix: added comma between "shop_name" and "logo_url"
     html_string = render_to_string(
         "inventory/pdf/weekly_summary_pdf.html",
         {
             "weeks": weeks_data,
-            "shop_name": shop_name
-            "logo_url": logo_url 
+            "shop_name": shop_name,
+            "logo_url": logo_url
         }
     )
 
@@ -762,8 +761,7 @@ def weekly_summary_pdf(request):
         base_url=request.build_absolute_uri()
     ).write_pdf()
 
-    response = HttpResponse(pdf_file, content_type='application/pdf')
-        # Build filename label
+    # Build filename label
     filename_parts = []
 
     for week_range in selected_weeks:
@@ -775,14 +773,12 @@ def weekly_summary_pdf(request):
         filename_parts.append(label)
 
     filename_label = " & ".join(filename_parts)
-
     safe_filename = f"Weekly_report_{filename_label}.pdf"
 
     response = HttpResponse(pdf_file, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{safe_filename}"'
 
     return response
-     
     
 @login_required
 def custom_summary(request):
