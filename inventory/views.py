@@ -339,7 +339,7 @@ def adjust_stock(request, pk=None):
 # ===========================
 # REPORTS
 # ===========================
-logger = logging.getLogger(__name__)
+
 @login_required
 def reports_home(request):
     from .utils import create_snapshot

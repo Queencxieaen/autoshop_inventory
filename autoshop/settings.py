@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Security
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-secret-key')
 DEBUG = True  # Production
-ALLOWED_HOSTS = ['autoshop-inventory-vqqq.onrender.com']
+ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = ['https://autoshop-inventory-vqqq.onrender.com']
 SECURE_SSL_REDIRECT = True  # Redirect HTTP to HTTPS
 SESSION_COOKIE_SECURE = True
