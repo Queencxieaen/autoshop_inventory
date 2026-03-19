@@ -278,14 +278,6 @@ def low_stock_page(request):
     })
 
 
-
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from .forms import AdjustStockForm
-from .models import Item, StockMovement, DailyItemSnapshot, DailySnapshot
-from .views_utils import create_snapshot  # use your existing snapshot function
-
 @login_required
 def adjust_stock(request, pk=None):
     snapshot = create_snapshot()  # ensure today’s snapshot exists
@@ -331,7 +323,7 @@ def adjust_stock(request, pk=None):
         'recent_movements': recent_movements,
         'snapshot': snapshot,
     })
-    
+
 # ===========================
 # REPORTS
 # ===========================
