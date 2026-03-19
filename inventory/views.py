@@ -281,15 +281,21 @@ def low_stock_page(request):
 
 @login_required
 def adjust_stock(request, pk=None):
-    item_instance = get_object_or_404(Item, pk=pk) if pk else None
-    form = AdjustStockForm(request.POST or None, initial={'item': item_instance})
+    selected_item = get_object_or_404(Item, pk=pk) if pk else None
 
-    if request.method == 'POST' and form.is_valid():
-        item = form.cleaned_data['item']
-        quantity = form.cleaned_data['quantity']
-        reason = form.cleaned_data['reason']
+    if request.method == 'POST':
+        item_id = request.POST.get("item")
+        quantity = int(request.POST.get("quantity"))
+        reason = request.POST.get("reason")
 
-        # 1️⃣ Update Item quantity
+        item = get_object_or_404(Item, pk=item_id)
+
+        # Prevent negative stock
+        if reason == 'remove' and quantity > item.quantity:
+            messages.error(request, "Stock out exceeds available quantity.")
+            return redirect('adjust_stock')
+
+        # Update item quantity ONLY
         if reason == 'add':
             item.quantity += quantity
         elif reason == 'remove':
@@ -297,7 +303,7 @@ def adjust_stock(request, pk=None):
 
         item.save()
 
-        # 2️⃣ Create StockMovement (signal will update DailyItemSnapshot)
+        # Create movement (signal handles snapshot)
         StockMovement.objects.create(
             item=item,
             quantity=quantity,
@@ -305,13 +311,18 @@ def adjust_stock(request, pk=None):
             user=request.user
         )
 
-        messages.success(request, f'Stock successfully updated for {item.name}.')
-        return redirect('adjust_stock')  # redirect to the same page
+        messages.success(request, f"{item.name} stock updated successfully!")
+        return redirect('adjust_stock')
 
-    context = {
-        'form': form
-    }
-    return render(request, 'inventory/adjust_stock.html', context)
+    # ✅ IMPORTANT: restore these
+    items = Item.objects.all()
+    movements = StockMovement.objects.select_related('item', 'user').order_by('-date')[:20]
+
+    return render(request, "inventory/adjust_stock.html", {
+        "items": items,
+        "selected_item": selected_item,
+        "movements": movements,
+    })
 
 # ===========================
 # REPORTS
