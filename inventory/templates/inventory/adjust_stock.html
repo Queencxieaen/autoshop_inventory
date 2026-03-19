@@ -80,27 +80,28 @@
                                     </thead>
                                     <tbody>
                                         {% for snapshot in today_snapshot %}
-                                        {% with latest=latest_movements|dict_key:snapshot.item.id %}
-                                        <tr>
-                                            <td>{{ snapshot.item.name }}</td>
-                                            <td>{{ snapshot.beginning_quantity }}</td>
-                                            <td>
-                                                {% if latest and latest.reason == "add" %}
-                                                    {{ latest.quantity }}
-                                                {% else %}
-                                                    0
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                {% if latest and latest.reason == "remove" %}
-                                                    {{ latest.quantity }}
-                                                {% else %}
-                                                    0
-                                                {% endif %}
-                                            </td>
-                                            <td>{{ snapshot.ending_quantity }}</td>
-                                        </tr>
-                                        {% endwith %}
+                                            <tr>
+                                                <td>{{ snapshot.item.name }}</td>
+                                                <td>{{ snapshot.beginning_quantity }}</td>
+
+                                                <td>
+                                                    {% if snapshot.item.id in latest_movements and latest_movements[snapshot.item.id].reason == "add" %}
+                                                        {{ latest_movements[snapshot.item.id].quantity }}
+                                                    {% else %}
+                                                        0
+                                                    {% endif %}
+                                                </td>
+
+                                                <td>
+                                                    {% if snapshot.item.id in latest_movements and latest_movements[snapshot.item.id].reason == "remove" %}
+                                                        {{ latest_movements[snapshot.item.id].quantity }}
+                                                    {% else %}
+                                                        0
+                                                    {% endif %}
+                                                </td>
+
+                                                <td>{{ snapshot.ending_quantity }}</td>
+                                            </tr>
                                         {% endfor %}
                                     </tbody>
                                 </table>
