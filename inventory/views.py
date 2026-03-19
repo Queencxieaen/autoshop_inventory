@@ -345,51 +345,53 @@ def reports_home(request):
     })
 
 @login_required
-def monthly_detail(request):
-    today = timezone.localdate()
-    year = request.GET.get('year', today.year)
-    month = request.GET.get('month', today.month)
+def daily_detail(request, year, month, day):
+    date_obj = date(year, month, day)
 
-    # Generate all snapshots for the month
-    first_day = date(int(year), int(month), 1)
-    last_day = (first_day.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
-    current_day = first_day
-    snapshots = []
-    while current_day <= last_day:
-        snapshots.append(create_snapshot(current_day))
-        current_day += timedelta(days=1)
+    # Ensure snapshot is complete
+    snapshot = create_snapshot(date_obj)
 
-    start_date = first_day
-    end_date = last_day
+    # Get all items for this snapshot
+    items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
+    
+    # Group by category
+    grouped = defaultdict(list)
+    for item in items:
+        cat_name = item.item.category.name if item.item.category else "Uncategorized"
+        grouped[cat_name].append(item)
 
-    return render(request, 'inventory/monthly_detail.html', {
-        'snapshots': snapshots,
-        'start_date': start_date,
-        'end_date': end_date,
-        'year': year,
-        'month': month,
-    })
+    # Get ShopSettings
+    shop_settings = ShopSettings.objects.filter(user=request.user).first()
+
+    context = {
+        'snapshot': snapshot,
+        'grouped': grouped,
+        'shop_name': shop_settings.shop_name if shop_settings else "My Shop"
+    }
+    return render(request, 'inventory/daily_detail.html', context)
 
 
 @login_required
-def daily_detail(request, year, month, day):
-    date_obj = date(year, month, day)
-    snapshot = create_snapshot(date_obj)
+def monthly_detail(request):
+    # Get date range from GET parameters or default to all
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
 
-    # Ensure all items included
-    items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
-    
-    grouped = defaultdict(list)
-    for item in items:
-        category_name = item.item.category.name if item.item.category else "Uncategorized"
-        grouped[category_name].append(item)
+    snapshots = DailySnapshot.objects.all().order_by('date')
 
-    return render(request, 'inventory/daily_detail.html', {
-        'snapshot': snapshot,
-        'grouped': grouped,
-        'shop_name': request.user.shopsettings.shop_name,
-    })
+    if start_date and end_date:
+        snapshots = snapshots.filter(date__gte=start_date, date__lte=end_date)
 
+    # Get ShopSettings
+    shop_settings = ShopSettings.objects.filter(user=request.user).first()
+
+    context = {
+        'snapshots': snapshots,
+        'start_date': start_date,
+        'end_date': end_date,
+        'shop_name': shop_settings.shop_name if shop_settings else "My Shop"
+    }
+    return render(request, 'inventory/monthly_detail.html', context)
 
 @login_required
 def delete_daily_report(request, date_str):

@@ -1,29 +1,29 @@
-# utils.py (or inside views.py)
 from datetime import timedelta
 from django.utils import timezone
-from .models import DailySnapshot, DailyItemSnapshot, Item
+from .models import DailySnapshot, DailyItemSnapshot, Item, ShopSettings
 
 def create_snapshot(snapshot_date=None):
     if not snapshot_date:
         snapshot_date = timezone.localdate()
 
-    snapshot, created = DailySnapshot.objects.get_or_create(date=snapshot_date)
+    # Get or create today's snapshot
+    snapshot, _ = DailySnapshot.objects.get_or_create(date=snapshot_date)
 
+    # Get yesterday's snapshot
     yesterday = snapshot_date - timedelta(days=1)
     prev_snapshot = DailySnapshot.objects.filter(date=yesterday).first()
 
-    existing_items = set(DailyItemSnapshot.objects.filter(snapshot=snapshot).values_list('item_id', flat=True))
-    all_items = Item.objects.all()
+    # Check which items are missing in today's snapshot
+    existing_item_ids = set(DailyItemSnapshot.objects.filter(snapshot=snapshot).values_list('item_id', flat=True))
+    items_to_create = Item.objects.exclude(id__in=existing_item_ids)
 
     daily_snapshots = []
-    for item in all_items:
-        if item.id in existing_items:
-            continue
-
+    for item in items_to_create:
         beginning_qty = 0
         if prev_snapshot:
             prev_item = DailyItemSnapshot.objects.filter(snapshot=prev_snapshot, item=item).first()
-            beginning_qty = prev_item.ending_quantity if prev_item else item.quantity
+            if prev_item:
+                beginning_qty = prev_item.ending_quantity
         else:
             beginning_qty = item.quantity
 
