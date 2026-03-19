@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from django.db.models.functions import ExtractYear, ExtractMonth
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -277,14 +277,14 @@ def low_stock_page(request):
         'limit': limit
     })
 
+
+
 @login_required
 def adjust_stock(request, pk=None):
     selected_item = get_object_or_404(Item, pk=pk) if pk else None
 
-    # Always get today's snapshot
     today_snapshot = create_snapshot()
 
-    # Prevent double POST
     if request.session.get('last_post') == request.POST:
         return redirect('adjust_stock')
     request.session['last_post'] = request.POST
@@ -296,7 +296,6 @@ def adjust_stock(request, pk=None):
 
         item = get_object_or_404(Item, pk=item_id)
 
-        # Get or create daily snapshot record for this item
         daily_item, created = DailyItemSnapshot.objects.get_or_create(
             snapshot=today_snapshot,
             item=item,
@@ -308,12 +307,10 @@ def adjust_stock(request, pk=None):
             }
         )
 
-        # Validate stock out
         if reason == "remove" and quantity > item.quantity:
             messages.error(request, "Stock out exceeds available quantity.")
             return redirect('adjust_stock')
 
-        # Apply stock change
         if reason == "add":
             item.quantity += quantity
             daily_item.stock_in += quantity
@@ -322,12 +319,9 @@ def adjust_stock(request, pk=None):
             daily_item.stock_out += quantity
 
         item.save()
-
-        # Recalculate ending quantity
         daily_item.ending_quantity = daily_item.beginning_quantity + daily_item.stock_in - daily_item.stock_out
         daily_item.save()
 
-        # Record the movement
         StockMovement.objects.create(
             item=item,
             quantity=quantity,
@@ -338,27 +332,25 @@ def adjust_stock(request, pk=None):
         messages.success(request, f"{item.name} stock updated successfully!")
         return redirect('adjust_stock')
 
-    # Prepare latest movement per item for today
-    today_start = timezone.localdate()
-    latest_movements_qs = StockMovement.objects.filter(
-        date__date=today_start
-    ).order_by('item_id', '-date')
-
-    latest_movements = {}
-    for move in latest_movements_qs:
-        if move.item_id not in latest_movements:
-            latest_movements[move.item_id] = move  # Save StockMovement object directly
+    # ✅ Sum movements per item today
+    today = timezone.localdate()
+    movements_today = StockMovement.objects.filter(date__date=today)
+    movements_summary = movements_today.values('item_id').annotate(
+        stock_in_sum=Sum('quantity', filter=Q(reason='add')),
+        stock_out_sum=Sum('quantity', filter=Q(reason='remove')),
+    )
+    movements_dict = {m['item_id']: m for m in movements_summary}
 
     items = Item.objects.all()
     snapshot_items = DailyItemSnapshot.objects.filter(snapshot=today_snapshot).select_related("item")
-    movements = StockMovement.objects.select_related('item', 'user').order_by('-date')[:20]
+    recent_movements = StockMovement.objects.select_related('item', 'user').order_by('-date')[:20]
 
     return render(request, "inventory/adjust_stock.html", {
         "items": items,
         "selected_item": selected_item,
         "today_snapshot": snapshot_items,
-        "movements": movements,
-        "latest_movements": latest_movements
+        "movements": recent_movements,
+        "latest_movements": movements_dict
     })
 
 # ===========================

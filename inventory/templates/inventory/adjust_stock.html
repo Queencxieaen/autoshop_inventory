@@ -1,6 +1,7 @@
 {% extends "inventory/base.html" %}
 {% load humanize %}
 {% load custom_filters %}
+
 {% block title %}Adjust Stock{% endblock %}
 
 {% block content %}
@@ -81,12 +82,12 @@
                                     </thead>
                                     <tbody>
                                         {% for snapshot in today_snapshot %}
-                                        {% with latest=latest_movements|get_item:snapshot.item.id %}
+                                        {% with latest=latest_movements|dict_key:snapshot.item.id %}
                                         <tr>
                                             <td>{{ snapshot.item.name }}</td>
                                             <td>{{ snapshot.beginning_quantity }}</td>
-                                            <td>{% if latest and latest.reason == "add" %}{{ latest.quantity }}{% else %}0{% endif %}</td>
-                                            <td>{% if latest and latest.reason == "remove" %}{{ latest.quantity }}{% else %}0{% endif %}</td>
+                                            <td>{{ latest.stock_in_sum|default:0 }}</td>
+                                            <td>{{ latest.stock_out_sum|default:0 }}</td>
                                             <td>{{ snapshot.ending_quantity }}</td>
                                         </tr>
                                         {% endwith %}
