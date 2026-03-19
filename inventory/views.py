@@ -311,8 +311,8 @@ def adjust_stock(request, pk=None):
     context = {
         'form': form
     }
-    return render(request, 'adjust_stock.html', context)
-    
+    return render(request, 'inventory/adjust_stock.html', context)
+
 # ===========================
 # REPORTS
 # ===========================
