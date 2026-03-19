@@ -280,50 +280,69 @@ def low_stock_page(request):
 
 @login_required
 def adjust_stock(request, pk=None):
-    snapshot = create_snapshot()  # ensure today’s snapshot exists
+    # Ensure today's snapshot exists so beginning/ending quantities are correct
+    today_snapshot = create_snapshot()
 
-    # Pre-select item if pk provided
-    item_instance = get_object_or_404(Item, pk=pk) if pk else None
+    # If a specific item is selected, get it; otherwise, no selection
+    selected_item = get_object_or_404(Item, pk=pk) if pk else None
 
-    if request.method == "POST":
-        form = AdjustStockForm(request.POST)
-        if form.is_valid():
-            item = form.cleaned_data['item']
-            qty = form.cleaned_data['quantity']
-            reason = form.cleaned_data['reason']
+    # All items for the dropdown
+    items = Item.objects.all().order_by('name')
 
-            # Update Item quantity
-            if reason == "add":
-                item.quantity += qty
-            else:
-                item.quantity -= qty
-            item.save()
-
-            # Record Stock Movement
-            StockMovement.objects.create(
-                item=item,
-                quantity=qty,
-                reason=reason,
-                user=request.user
-            )
-
-            messages.success(request, f"{reason.title()} updated for {item.name}")
-            return redirect('adjust_stock')
-    else:
-        form = AdjustStockForm(initial={'item': item_instance})
-
-    # Show all items in dropdown
-    form.fields['item'].queryset = Item.objects.all()
-
-    # Show recent movements (latest 10)
+    # Recent stock movements (last 10)
     recent_movements = StockMovement.objects.select_related('item', 'user').order_by('-date')[:10]
 
-    return render(request, 'inventory/adjust_stock.html', {
-        'form': form,
-        'recent_movements': recent_movements,
-        'snapshot': snapshot,
-    })
+    if request.method == 'POST':
+        item_id = request.POST.get('item_id')
+        reason = request.POST.get('reason')
+        quantity = int(request.POST.get('quantity', 0))
+        remarks = request.POST.get('remarks', '')
 
+        if item_id and reason and quantity:
+            item = get_object_or_404(Item, pk=item_id)
+
+            # Create the stock movement
+            StockMovement.objects.create(
+                item=item,
+                quantity=quantity,
+                reason=reason,
+                user=request.user,
+                remarks=remarks
+            )
+
+            # Update today's snapshot for this item
+            snapshot_item, _ = DailyItemSnapshot.objects.get_or_create(
+                snapshot=today_snapshot,
+                item=item,
+                defaults={
+                    'beginning_quantity': item.quantity,
+                    'stock_in': 0,
+                    'stock_out': 0,
+                    'ending_quantity': item.quantity
+                }
+            )
+
+            if reason == 'add':
+                snapshot_item.stock_in += quantity
+            else:  # 'remove' or 'adjust'
+                snapshot_item.stock_out += quantity
+
+            snapshot_item.ending_quantity = snapshot_item.beginning_quantity + snapshot_item.stock_in - snapshot_item.stock_out
+            snapshot_item.save()
+
+            # Redirect to avoid duplicate POST
+            return redirect('adjust_stock')
+
+    context = {
+        'items': items,
+        'selected_item': selected_item,
+        'recent_movements': recent_movements,
+        'snapshot': today_snapshot,
+        'shop_name': request.user.shopsettings.shop_name if hasattr(request.user, 'shopsettings') else 'My Shop',
+    }
+
+    return render(request, 'inventory/adjust_stock.html', context)
+    
 # ===========================
 # REPORTS
 # ===========================
