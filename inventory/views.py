@@ -348,51 +348,50 @@ def reports_home(request):
 def daily_detail(request, year, month, day):
     date_obj = date(year, month, day)
 
-    # Ensure snapshot is complete
+    # Ensure snapshot exists and all items are included
     snapshot = create_snapshot(date_obj)
 
-    # Get all items for this snapshot
+    # Fetch all items for this snapshot
     items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
-    
-    # Group by category
-    grouped = defaultdict(list)
-    for item in items:
-        cat_name = item.item.category.name if item.item.category else "Uncategorized"
-        grouped[cat_name].append(item)
 
-    # Get ShopSettings
-    shop_settings = ShopSettings.objects.filter(user=request.user).first()
+    # Group items by category
+    grouped = {}
+    for item_snapshot in items:
+        category_name = item_snapshot.item.category.name if item_snapshot.item.category else 'Uncategorized'
+        grouped.setdefault(category_name, []).append(item_snapshot)
 
     context = {
         'snapshot': snapshot,
         'grouped': grouped,
-        'shop_name': shop_settings.shop_name if shop_settings else "My Shop"
+        'shop_name': request.user.shopsettings.shop_name if hasattr(request.user, 'shopsettings') else 'My Shop',
     }
     return render(request, 'inventory/daily_detail.html', context)
 
-
 @login_required
 def monthly_detail(request):
-    # Get date range from GET parameters or default to all
-    start_date = request.GET.get('start_date')
-    end_date = request.GET.get('end_date')
-
     snapshots = DailySnapshot.objects.all().order_by('date')
+    year = request.GET.get('year')
+    month = request.GET.get('month')
 
-    if start_date and end_date:
-        snapshots = snapshots.filter(date__gte=start_date, date__lte=end_date)
+    if year and month:
+        year = int(year)
+        month = int(month)
+        # Filter snapshots by selected month/year
+        snapshots = snapshots.filter(date__year=year, date__month=month)
 
-    # Get ShopSettings
-    shop_settings = ShopSettings.objects.filter(user=request.user).first()
+        # Ensure each snapshot includes all items
+        for snapshot in snapshots:
+            create_snapshot(snapshot.date)
 
     context = {
         'snapshots': snapshots,
-        'start_date': start_date,
-        'end_date': end_date,
-        'shop_name': shop_settings.shop_name if shop_settings else "My Shop"
+        'year': year,
+        'month': month,
     }
     return render(request, 'inventory/monthly_detail.html', context)
 
+
+    
 @login_required
 def delete_daily_report(request, date_str):
     if request.method != "POST":
