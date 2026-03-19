@@ -3,65 +3,47 @@
 {% block title %}Adjust Stock{% endblock %}
 
 {% block content %}
-
 <div class="container-fluid py-4">
 
-    <!-- Header (smaller & clean) -->
+    <!-- Header -->
     <div class="p-3 rounded-4 text-white mb-4"
          style="background: linear-gradient(135deg, #f59e0b, #f97316);">
         <h4 class="fw-bold mb-1">⚙️ Adjust Stock</h4>
-        <p class="mb-0 small opacity-75">
-            Manually increase or decrease product inventory
-        </p>
+        <p class="mb-0 small opacity-75">Manually increase or decrease product inventory</p>
     </div>
 
-    <!-- Main Card -->
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-
         <div class="p-4">
-
             <div class="row g-4">
 
                 <!-- LEFT: Stock Form -->
                 <div class="col-lg-4">
                     <div class="bg-light p-4 rounded-4">
-
                         <form method="POST">
                             {% csrf_token %}
 
                             <!-- Item -->
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Item</label>
-                                 {% if selected_item %}
-                                        <!-- LOCKED ITEM DISPLAY -->
-                                        <div class="form-control rounded-3 bg-light">
-                                            {{ selected_item.name }} ({{ selected_item.quantity }})
-                                        </div>
-
-                                        <!-- Hidden input so form still submits item id -->
-                                        <input type="hidden" name="item" value="{{ selected_item.id }}">
-
-                                    {% else %}
-                                        <!-- NORMAL DROPDOWN WHEN NO ITEM IS PRESELECTED -->
-                                        <select name="item" class="form-select rounded-3" required>
-                                            <option value="">Select item</option>
-                                            {% for item in items %}
-                                            <option value="{{ item.id }}">
-                                                {{ item.name }} ({{ item.quantity }})
-                                            </option>
-                                            {% endfor %}
-                                        </select>
-                                    {% endif %}
-                                </div>
+                                {% if selected_item %}
+                                    <div class="form-control rounded-3 bg-light">
+                                        {{ selected_item.name }} ({{ selected_item.quantity }})
+                                    </div>
+                                    <input type="hidden" name="item" value="{{ selected_item.id }}">
+                                {% else %}
+                                    <select name="item" class="form-select rounded-3" required>
+                                        <option value="">Select item</option>
+                                        {% for item in items %}
+                                            <option value="{{ item.id }}">{{ item.name }} ({{ item.quantity }})</option>
+                                        {% endfor %}
+                                    </select>
+                                {% endif %}
+                            </div>
 
                             <!-- Quantity -->
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Quantity</label>
-                                <input type="number"
-                                       name="quantity"
-                                       min="1"
-                                       class="form-control rounded-3"
-                                       required>
+                                <input type="number" name="quantity" min="1" class="form-control rounded-3" required>
                             </div>
 
                             <!-- Action -->
@@ -73,28 +55,65 @@
                                 </select>
                             </div>
 
-                            <button class="btn btn-warning w-100 rounded-3 fw-semibold">
-                                Update Stock
-                            </button>
-
+                            <button class="btn btn-warning w-100 rounded-3 fw-semibold">Update Stock</button>
                         </form>
-
                     </div>
                 </div>
 
-                <!-- RIGHT: Scrollable Stock Movements -->
+                <!-- RIGHT: Snapshot & Movements -->
                 <div class="col-lg-8">
+
+                    <!-- Daily Stock Snapshot -->
+                    <div class="card border-0 shadow-sm rounded-4 mb-4">
+                        <div class="card-body">
+                            <h6 class="fw-bold mb-3">Today's Stock Snapshot</h6>
+                            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                <table class="table table-bordered align-middle mb-0">
+                                    <thead class="bg-white sticky-top shadow-sm">
+                                        <tr class="text-muted small">
+                                            <th>Item</th>
+                                            <th>Beginning</th>
+                                            <th>Stock In</th>
+                                            <th>Stock Out</th>
+                                            <th>Ending</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for snapshot in today_snapshot %}
+                                        {% with latest=latest_movements|dict_key:snapshot.item.id %}
+                                        <tr>
+                                            <td>{{ snapshot.item.name }}</td>
+                                            <td>{{ snapshot.beginning_quantity }}</td>
+                                            <td>
+                                                {% if latest and latest.reason == "add" %}
+                                                    {{ latest.quantity }}
+                                                {% else %}
+                                                    0
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if latest and latest.reason == "remove" %}
+                                                    {{ latest.quantity }}
+                                                {% else %}
+                                                    0
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ snapshot.ending_quantity }}</td>
+                                        </tr>
+                                        {% endwith %}
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Stock Movements -->
                     <div class="card border-0 shadow-sm rounded-4">
                         <div class="card-body">
-
                             <h6 class="fw-bold mb-3">Recent Stock Movements</h6>
-
-                            <!-- Scrollable Table -->
-                            <div class="table-responsive"
-                                 style="max-height: 400px; overflow-y: auto;">
-
+                            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                                 <table class="table table-borderless align-middle mb-0">
-
                                     <thead class="bg-white sticky-top shadow-sm">
                                         <tr class="text-muted small">
                                             <th>Date</th>
@@ -103,7 +122,6 @@
                                             <th class="text-center">User</th>
                                         </tr>
                                     </thead>
-
                                     <tbody>
                                         {% for move in movements %}
                                         <tr class="border-bottom">
@@ -111,18 +129,12 @@
                                             <td>{{ move.item.name }}</td>
                                             <td class="text-center fw-bold">
                                                 {% if move.reason == "add" %}
-                                                    <span class="text-success">
-                                                        +{{ move.quantity }}
-                                                    </span>
+                                                    <span class="text-success">+{{ move.quantity }}</span>
                                                 {% else %}
-                                                    <span class="text-danger">
-                                                        -{{ move.quantity }}
-                                                    </span>
+                                                    <span class="text-danger">-{{ move.quantity }}</span>
                                                 {% endif %}
                                             </td>
-                                            <td class="text-center">
-                                                {{ move.user.username }}
-                                            </td>
+                                            <td class="text-center">{{ move.user.username }}</td>
                                         </tr>
                                         {% empty %}
                                         <tr>
@@ -132,22 +144,16 @@
                                         </tr>
                                         {% endfor %}
                                     </tbody>
-
                                 </table>
-
                             </div>
-                            <!-- End Scroll -->
-
                         </div>
                     </div>
+
                 </div>
 
             </div>
-
         </div>
-
     </div>
 
 </div>
-
 {% endblock %}

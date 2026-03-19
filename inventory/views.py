@@ -296,22 +296,19 @@ def adjust_stock(request, pk=None):
 
         item = get_object_or_404(Item, pk=item_id)
 
-        # 🚨 Get today's daily snapshot record (should already exist from create_snapshot)
+        # Get the existing daily snapshot record
         try:
-            daily_item = DailyItemSnapshot.objects.get(
-                snapshot=today_snapshot,
-                item=item
-            )
+            daily_item = DailyItemSnapshot.objects.get(snapshot=today_snapshot, item=item)
         except DailyItemSnapshot.DoesNotExist:
             messages.error(request, "Daily snapshot record not found for this item.")
             return redirect('adjust_stock')
 
-        # 🚨 Validate stock out
+        # Validate stock out
         if reason == "remove" and quantity > item.quantity:
             messages.error(request, "Stock out exceeds available quantity.")
             return redirect('adjust_stock')
 
-        # ✅ Apply stock change
+        # Apply stock change
         if reason == "add":
             item.quantity += quantity
             daily_item.stock_in += quantity
@@ -321,7 +318,7 @@ def adjust_stock(request, pk=None):
 
         item.save()
 
-        # ✅ Recalculate ending quantity
+        # Recalculate ending quantity
         daily_item.ending_quantity = daily_item.beginning_quantity + daily_item.stock_in - daily_item.stock_out
         daily_item.save()
 
@@ -341,11 +338,19 @@ def adjust_stock(request, pk=None):
     snapshot_items = DailyItemSnapshot.objects.filter(snapshot=today_snapshot).select_related("item")
     movements = StockMovement.objects.select_related('item', 'user').order_by('-date')[:20]
 
+    # Prepare latest movement per item for display
+    today_start = timezone.localdate()
+    latest_movements = {}
+    for move in StockMovement.objects.filter(date__date=today_start).order_by('item', '-date'):
+        if move.item_id not in latest_movements:
+            latest_movements[move.item_id] = move
+
     return render(request, "inventory/adjust_stock.html", {
         "items": items,
         "selected_item": selected_item,
         "today_snapshot": snapshot_items,
-        "movements": movements
+        "movements": movements,
+        "latest_movements": latest_movements
     })
 
 # ===========================
