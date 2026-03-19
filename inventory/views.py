@@ -279,51 +279,59 @@ def low_stock_page(request):
 
 
 
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from .forms import AdjustStockForm
+from .models import Item, StockMovement, DailyItemSnapshot, DailySnapshot
+from .views_utils import create_snapshot  # use your existing snapshot function
+
 @login_required
 def adjust_stock(request, pk=None):
-    selected_item = get_object_or_404(Item, pk=pk) if pk else None
+    snapshot = create_snapshot()  # ensure today’s snapshot exists
 
-    if request.method == 'POST':
-        item_id = request.POST.get("item")
-        quantity = int(request.POST.get("quantity"))
-        reason = request.POST.get("reason")
+    # Pre-select item if pk provided
+    item_instance = get_object_or_404(Item, pk=pk) if pk else None
 
-        item = get_object_or_404(Item, pk=item_id)
+    if request.method == "POST":
+        form = AdjustStockForm(request.POST)
+        if form.is_valid():
+            item = form.cleaned_data['item']
+            qty = form.cleaned_data['quantity']
+            reason = form.cleaned_data['reason']
 
-        # Prevent negative stock
-        if reason == 'remove' and quantity > item.quantity:
-            messages.error(request, "Stock out exceeds available quantity.")
+            # Update Item quantity
+            if reason == "add":
+                item.quantity += qty
+            else:
+                item.quantity -= qty
+            item.save()
+
+            # Record Stock Movement
+            StockMovement.objects.create(
+                item=item,
+                quantity=qty,
+                reason=reason,
+                user=request.user
+            )
+
+            messages.success(request, f"{reason.title()} updated for {item.name}")
             return redirect('adjust_stock')
+    else:
+        form = AdjustStockForm(initial={'item': item_instance})
 
-        # Update item quantity ONLY
-        if reason == 'add':
-            item.quantity += quantity
-        elif reason == 'remove':
-            item.quantity -= quantity
+    # Show all items in dropdown
+    form.fields['item'].queryset = Item.objects.all()
 
-        item.save()
+    # Show recent movements (latest 10)
+    recent_movements = StockMovement.objects.select_related('item', 'user').order_by('-date')[:10]
 
-        # Create movement (signal handles snapshot)
-        StockMovement.objects.create(
-            item=item,
-            quantity=quantity,
-            reason=reason,
-            user=request.user
-        )
-
-        messages.success(request, f"{item.name} stock updated successfully!")
-        return redirect('adjust_stock')
-
-    # ✅ IMPORTANT: restore these
-    items = Item.objects.all()
-    movements = StockMovement.objects.select_related('item', 'user').order_by('-date')[:20]
-
-    return render(request, "inventory/adjust_stock.html", {
-        "items": items,
-        "selected_item": selected_item,
-        "movements": movements,
+    return render(request, 'inventory/adjust_stock.html', {
+        'form': form,
+        'recent_movements': recent_movements,
+        'snapshot': snapshot,
     })
-
+    
 # ===========================
 # REPORTS
 # ===========================
@@ -344,79 +352,50 @@ def reports_home(request):
         'today': today
     })
 
-@login_required   
+@login_required
 def monthly_detail(request):
     today = timezone.localdate()
+    year = request.GET.get('year', today.year)
+    month = request.GET.get('month', today.month)
 
-    start_date_str = request.GET.get('start_date')
-    end_date_str = request.GET.get('end_date')
+    # Generate all snapshots for the month
+    first_day = date(int(year), int(month), 1)
+    last_day = (first_day.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+    current_day = first_day
+    snapshots = []
+    while current_day <= last_day:
+        snapshots.append(create_snapshot(current_day))
+        current_day += timedelta(days=1)
 
-    try:
-        start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date() if start_date_str else today.replace(day=1)
-    except ValueError:
-        start_date = today.replace(day=1)
+    start_date = first_day
+    end_date = last_day
 
-    try:
-        end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date() if end_date_str else today
-    except ValueError:
-        end_date = today
-
-    if end_date < start_date:
-        end_date = start_date
-
-    snapshots = DailySnapshot.objects.filter(
-        date__range=(start_date, end_date)
-    ).order_by('date')
-
-    year = start_date.year
-    month = start_date.month
-
-    context = {
+    return render(request, 'inventory/monthly_detail.html', {
         'snapshots': snapshots,
         'start_date': start_date,
         'end_date': end_date,
         'year': year,
         'month': month,
-    }
+    })
 
-    return render(request, 'inventory/monthly_detail.html', context)
 
 @login_required
 def daily_detail(request, year, month, day):
-    from .utils import create_snapshot  # <-- local import
-
     date_obj = date(year, month, day)
+    snapshot = create_snapshot(date_obj)
 
-    snapshot = DailySnapshot.objects.filter(date=date_obj).first()
-
-    if not snapshot:
-        snapshot = create_snapshot(date_obj)
-
+    # Ensure all items included
     items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
-
-    grouped = {}
-
+    
+    grouped = defaultdict(list)
     for item in items:
         category_name = item.item.category.name if item.item.category else "Uncategorized"
-
-        if category_name not in grouped:
-            grouped[category_name] = []
-
         grouped[category_name].append(item)
 
-    # SORT ITEMS A → Z
-    for category in grouped:
-        grouped[category] = sorted(grouped[category], key=lambda x: x.item.name)
-
-    # SHOP NAME (fix)
-    shop = ShopSettings.objects.first()
-    shop_name = shop.shop_name if shop else "Inventory System"
-
-    return render(request, "inventory/daily_detail.html", {
-        "snapshot": snapshot,
-        "grouped": grouped,
-        "selected_date": date_obj,
-        "shop_name": shop_name,
+    return render(request, 'inventory/daily_detail.html', {
+        'snapshot': snapshot,
+        'grouped': grouped,
+        'shop_name': request.user.shopsettings.shop_name,
     })
 
 
