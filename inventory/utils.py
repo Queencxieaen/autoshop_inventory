@@ -6,38 +6,34 @@ def create_snapshot(snapshot_date=None):
     if not snapshot_date:
         snapshot_date = timezone.localdate()
 
-    # Get or create today's snapshot
+    # 1️⃣ Get or create today's snapshot
     snapshot, created = DailySnapshot.objects.get_or_create(date=snapshot_date)
 
-    # Get yesterday's snapshot
+    # 2️⃣ Get yesterday's snapshot
     yesterday = snapshot_date - timedelta(days=1)
     prev_snapshot = DailySnapshot.objects.filter(date=yesterday).first()
 
-    # Check which items are missing in today's snapshot
-    existing_item_ids = set(DailyItemSnapshot.objects.filter(snapshot=snapshot).values_list('item_id', flat=True))
-    items_to_create = Item.objects.exclude(id__in=existing_item_ids)
+    # 3️⃣ Loop through all items
+    for item in Item.objects.all():
+        # 3a️⃣ Skip if DailyItemSnapshot already exists for today
+        if DailyItemSnapshot.objects.filter(snapshot=snapshot, item=item).exists():
+            continue
 
-    daily_snapshots = []
-    for item in items_to_create:
-        # beginning_quantity comes from yesterday's ending_quantity
-        beginning_qty = 0
+        # 3b️⃣ Determine beginning_quantity
         if prev_snapshot:
             prev_item = DailyItemSnapshot.objects.filter(snapshot=prev_snapshot, item=item).first()
-            if prev_item:
-                beginning_qty = prev_item.ending_quantity
+            beginning_qty = prev_item.ending_quantity if prev_item else item.quantity
         else:
-            beginning_qty = item.quantity  # only for the first day ever
+            beginning_qty = item.quantity  # first ever snapshot
 
-        daily_snapshots.append(DailyItemSnapshot(
+        # 3c️⃣ Create DailyItemSnapshot
+        DailyItemSnapshot.objects.create(
             snapshot=snapshot,
             item=item,
             beginning_quantity=beginning_qty,
             stock_in=0,
             stock_out=0,
             ending_quantity=beginning_qty
-        ))
-
-    if daily_snapshots:
-        DailyItemSnapshot.objects.bulk_create(daily_snapshots)
+        )
 
     return snapshot

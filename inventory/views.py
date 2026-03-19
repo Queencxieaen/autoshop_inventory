@@ -281,47 +281,23 @@ def low_stock_page(request):
 
 @login_required
 def adjust_stock(request, pk=None):
-    selected_item = get_object_or_404(Item, pk=pk) if pk else None
+    item_instance = get_object_or_404(Item, pk=pk) if pk else None
+    form = AdjustStockForm(request.POST or None, initial={'item': item_instance})
 
-    today_snapshot = create_snapshot()
+    if request.method == 'POST' and form.is_valid():
+        item = form.cleaned_data['item']
+        quantity = form.cleaned_data['quantity']
+        reason = form.cleaned_data['reason']
 
-    if request.session.get('last_post') == request.POST:
-        return redirect('adjust_stock')
-    request.session['last_post'] = request.POST
-
-    if request.method == "POST":
-        item_id = request.POST.get("item")
-        quantity = int(request.POST.get("quantity"))
-        reason = request.POST.get("reason")
-
-        item = get_object_or_404(Item, pk=item_id)
-
-        daily_item, created = DailyItemSnapshot.objects.get_or_create(
-            snapshot=today_snapshot,
-            item=item,
-            defaults={
-                "beginning_quantity": item.quantity,
-                "stock_in": 0,
-                "stock_out": 0,
-                "ending_quantity": item.quantity,
-            }
-        )
-
-        if reason == "remove" and quantity > item.quantity:
-            messages.error(request, "Stock out exceeds available quantity.")
-            return redirect('adjust_stock')
-
-        if reason == "add":
+        # 1️⃣ Update Item quantity
+        if reason == 'add':
             item.quantity += quantity
-            daily_item.stock_in += quantity
-        elif reason == "remove":
+        elif reason == 'remove':
             item.quantity -= quantity
-            daily_item.stock_out += quantity
 
         item.save()
-        daily_item.ending_quantity = daily_item.beginning_quantity + daily_item.stock_in - daily_item.stock_out
-        daily_item.save()
 
+        # 2️⃣ Create StockMovement (signal will update DailyItemSnapshot)
         StockMovement.objects.create(
             item=item,
             quantity=quantity,
@@ -329,30 +305,14 @@ def adjust_stock(request, pk=None):
             user=request.user
         )
 
-        messages.success(request, f"{item.name} stock updated successfully!")
-        return redirect('adjust_stock')
+        messages.success(request, f'Stock successfully updated for {item.name}.')
+        return redirect('adjust_stock')  # redirect to the same page
 
-    # ✅ Sum movements per item today
-    today = timezone.localdate()
-    movements_today = StockMovement.objects.filter(date__date=today)
-    movements_summary = movements_today.values('item_id').annotate(
-        stock_in_sum=Sum('quantity', filter=Q(reason='add')),
-        stock_out_sum=Sum('quantity', filter=Q(reason='remove')),
-    )
-    movements_dict = {m['item_id']: m for m in movements_summary}
-
-    items = Item.objects.all()
-    snapshot_items = DailyItemSnapshot.objects.filter(snapshot=today_snapshot).select_related("item")
-    recent_movements = StockMovement.objects.select_related('item', 'user').order_by('-date')[:20]
-
-    return render(request, "inventory/adjust_stock.html", {
-        "items": items,
-        "selected_item": selected_item,
-        "today_snapshot": snapshot_items,
-        "movements": recent_movements,
-        "latest_movements": movements_dict
-    })
-
+    context = {
+        'form': form
+    }
+    return render(request, 'adjust_stock.html', context)
+    
 # ===========================
 # REPORTS
 # ===========================
