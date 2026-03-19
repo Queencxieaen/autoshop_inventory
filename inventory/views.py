@@ -280,42 +280,39 @@ def low_stock_page(request):
 
 @login_required
 def adjust_stock(request, pk=None):
-    # Ensure today's snapshot exists so beginning/ending quantities are correct
     today_snapshot = create_snapshot()
+    today_snapshot_items = DailyItemSnapshot.objects.filter(snapshot=today_snapshot)
 
-    # If a specific item is selected, get it; otherwise, no selection
-    selected_item = get_object_or_404(Item, pk=pk) if pk else None
-
-    # All items for the dropdown
     items = Item.objects.all().order_by('name')
-
-    # Recent stock movements (last 10)
     recent_movements = StockMovement.objects.select_related('item', 'user').order_by('-date')[:10]
 
     if request.method == 'POST':
-        item_id = request.POST.get('item_id')
+        item_id = request.POST.get('item')  # match template
         reason = request.POST.get('reason')
         quantity = int(request.POST.get('quantity', 0))
-        remarks = request.POST.get('remarks', '')
 
-        if item_id and reason and quantity:
+        if item_id and reason and quantity > 0:
             item = get_object_or_404(Item, pk=item_id)
 
-            # Create the stock movement
+            if reason == 'add':
+                item.quantity += quantity
+            elif reason in ['remove', 'adjust']:
+                item.quantity -= quantity
+            item.save()
+
             StockMovement.objects.create(
                 item=item,
                 quantity=quantity,
                 reason=reason,
-                user=request.user,
-                remarks=remarks
+                user=request.user
             )
 
-            # Update today's snapshot for this item
+            # Update snapshot
             snapshot_item, _ = DailyItemSnapshot.objects.get_or_create(
                 snapshot=today_snapshot,
                 item=item,
                 defaults={
-                    'beginning_quantity': item.quantity,
+                    'beginning_quantity': item.quantity - quantity if reason == 'add' else item.quantity + quantity,
                     'stock_in': 0,
                     'stock_out': 0,
                     'ending_quantity': item.quantity
@@ -324,25 +321,25 @@ def adjust_stock(request, pk=None):
 
             if reason == 'add':
                 snapshot_item.stock_in += quantity
-            else:  # 'remove' or 'adjust'
+            else:
                 snapshot_item.stock_out += quantity
 
             snapshot_item.ending_quantity = snapshot_item.beginning_quantity + snapshot_item.stock_in - snapshot_item.stock_out
             snapshot_item.save()
 
-            # Redirect to avoid duplicate POST
             return redirect('adjust_stock')
 
+    shop_name = getattr(request.user, 'shopsettings', None)
     context = {
         'items': items,
-        'selected_item': selected_item,
-        'recent_movements': recent_movements,
-        'snapshot': today_snapshot,
-        'shop_name': request.user.shopsettings.shop_name if hasattr(request.user, 'shopsettings') else 'My Shop',
+        'selected_item': None,
+        'movements': recent_movements,
+        'today_snapshot_items': today_snapshot_items,
+        'shop_name': shop_name.shop_name if shop_name else 'My Shop'
     }
 
     return render(request, 'inventory/adjust_stock.html', context)
-    
+
 # ===========================
 # REPORTS
 # ===========================
