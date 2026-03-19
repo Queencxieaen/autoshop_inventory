@@ -283,9 +283,12 @@ def adjust_stock(request, pk=None):
 
     # Always get today's snapshot
     today_snapshot = create_snapshot()
+
+    # Prevent duplicate POSTs
     if request.session.get('last_post') == request.POST:
         return redirect('adjust_stock')
     request.session['last_post'] = request.POST
+
     if request.method == "POST":
         item_id = request.POST.get("item")
         quantity = int(request.POST.get("quantity"))
@@ -293,24 +296,22 @@ def adjust_stock(request, pk=None):
 
         item = get_object_or_404(Item, pk=item_id)
 
-        # Get or create daily snapshot record for this item
-        daily_item, created = DailyItemSnapshot.objects.get_or_create(
-            snapshot=today_snapshot,
-            item=item,
-            defaults={
-                "beginning_quantity": item.quantity,
-                "stock_in": 0,
-                "stock_out": 0,
-                "ending_quantity": item.quantity,
-            }
-        )
+        # 🚨 Get today's daily snapshot record (should already exist from create_snapshot)
+        try:
+            daily_item = DailyItemSnapshot.objects.get(
+                snapshot=today_snapshot,
+                item=item
+            )
+        except DailyItemSnapshot.DoesNotExist:
+            messages.error(request, "Daily snapshot record not found for this item.")
+            return redirect('adjust_stock')
 
         # 🚨 Validate stock out
         if reason == "remove" and quantity > item.quantity:
             messages.error(request, "Stock out exceeds available quantity.")
             return redirect('adjust_stock')
 
-        # ✅ Apply stock change first
+        # ✅ Apply stock change
         if reason == "add":
             item.quantity += quantity
             daily_item.stock_in += quantity
