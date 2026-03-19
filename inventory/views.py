@@ -284,7 +284,7 @@ def adjust_stock(request, pk=None):
     # Always get today's snapshot
     today_snapshot = create_snapshot()
 
-    # Prevent duplicate POSTs
+    # Prevent double POST
     if request.session.get('last_post') == request.POST:
         return redirect('adjust_stock')
     request.session['last_post'] = request.POST
@@ -296,12 +296,17 @@ def adjust_stock(request, pk=None):
 
         item = get_object_or_404(Item, pk=item_id)
 
-        # Get the existing daily snapshot record
-        try:
-            daily_item = DailyItemSnapshot.objects.get(snapshot=today_snapshot, item=item)
-        except DailyItemSnapshot.DoesNotExist:
-            messages.error(request, "Daily snapshot record not found for this item.")
-            return redirect('adjust_stock')
+        # Get or create daily snapshot record for this item
+        daily_item, created = DailyItemSnapshot.objects.get_or_create(
+            snapshot=today_snapshot,
+            item=item,
+            defaults={
+                "beginning_quantity": item.quantity,
+                "stock_in": 0,
+                "stock_out": 0,
+                "ending_quantity": item.quantity,
+            }
+        )
 
         # Validate stock out
         if reason == "remove" and quantity > item.quantity:
@@ -333,17 +338,20 @@ def adjust_stock(request, pk=None):
         messages.success(request, f"{item.name} stock updated successfully!")
         return redirect('adjust_stock')
 
-    # GET request
+    # Prepare latest movement per item for today
+    today_start = timezone.localdate()
+    latest_movements_qs = StockMovement.objects.filter(
+        date__date=today_start
+    ).order_by('item_id', '-date')
+
+    latest_movements = {}
+    for move in latest_movements_qs:
+        if move.item_id not in latest_movements:
+            latest_movements[move.item_id] = move  # Save StockMovement object directly
+
     items = Item.objects.all()
     snapshot_items = DailyItemSnapshot.objects.filter(snapshot=today_snapshot).select_related("item")
     movements = StockMovement.objects.select_related('item', 'user').order_by('-date')[:20]
-
-    # Prepare latest movement per item for display
-    today_start = timezone.localdate()
-    latest_movements = {}
-    for move in StockMovement.objects.filter(date__date=today_start).order_by('item', '-date'):
-        if move.item_id not in latest_movements:
-            latest_movements[move.item_id] = move
 
     return render(request, "inventory/adjust_stock.html", {
         "items": items,
