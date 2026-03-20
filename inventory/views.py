@@ -383,15 +383,24 @@ def reports_home(request):
         'today': today
     })
 
+from django.shortcuts import get_object_or_404
+from datetime import date
+from inventory.models import DailySnapshot, DailyItemSnapshot
+from inventory.utils import create_snapshot  # make sure this only creates snapshots and saves them
+
 @login_required
 def daily_detail(request, year, month, day):
     date_obj = date(year, month, day)
 
-    # Get or create snapshot safely
-    snapshot = create_snapshot(date_obj)
+    # Try to get today's snapshot
+    snapshot, created = DailySnapshot.objects.get_or_create(date=date_obj)
+
+    # Only create item snapshots if they don't exist yet
+    if created or not snapshot.items.exists():
+        create_snapshot(date_obj)  # Make sure this only creates DailyItemSnapshot entries
 
     # Fetch all items in this snapshot
-    items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
+    items = DailyItemSnapshot.objects.filter(snapshot__date=date_obj).select_related('item__category')
 
     # Group by category
     grouped = {}
@@ -406,6 +415,7 @@ def daily_detail(request, year, month, day):
     }
     return render(request, 'inventory/daily_detail.html', context)
 
+    
 @login_required
 def monthly_detail(request):
     snapshots = DailySnapshot.objects.all().order_by('date')
