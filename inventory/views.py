@@ -386,27 +386,31 @@ def reports_home(request):
 
 @login_required
 def daily_detail(request, year, month, day):
+    from datetime import date
+    from inventory.utils import create_snapshot
+
     date_obj = date(year, month, day)
 
-    # Get or create snapshot (safe, won't double-count)
+    # Ensure snapshot exists (safe rebuild)
     snapshot = create_snapshot(date_obj)
 
-    # Fetch items
-    items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
+    items = DailyItemSnapshot.objects.filter(
+        snapshot=snapshot
+    ).select_related('item__category')
 
-    # Group by category
     grouped = {}
-    for item_snapshot in items:
-        category_name = item_snapshot.item.category.name if item_snapshot.item.category else 'Uncategorized'
-        grouped.setdefault(category_name, []).append(item_snapshot)
+    for i in items:
+        category = i.item.category.name if i.item.category else "Uncategorized"
+        grouped.setdefault(category, []).append(i)
 
-    context = {
+    shop_settings = getattr(request.user, 'shopsettings', None)
+
+    return render(request, 'inventory/daily_detail.html', {
         'snapshot': snapshot,
         'grouped': grouped,
-        'shop_name': getattr(request.user.shopsettings, 'shop_name', 'My Shop'),
-    }
-    return render(request, 'inventory/daily_detail.html', context)
-
+        'shop_name': shop_settings.shop_name if shop_settings else "My Shop",
+    })
+    
 @login_required
 def monthly_detail(request):
     snapshots = DailySnapshot.objects.all().order_by('date')
