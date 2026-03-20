@@ -21,7 +21,7 @@ def create_snapshot(snapshot_date=None):
             prev_item = DailyItemSnapshot.objects.get(snapshot=prev_snapshot, item=item)
             beginning = prev_item.ending_quantity
         except:
-            beginning = item.initial_stock or 0
+            beginning = item.quantity or 0
 
         # Get today's movements ONLY
         stock_in = StockMovement.objects.filter(
