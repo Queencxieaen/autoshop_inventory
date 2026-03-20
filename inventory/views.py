@@ -387,13 +387,13 @@ def reports_home(request):
 def daily_detail(request, year, month, day):
     date_obj = date(year, month, day)
 
-    # Ensure snapshot exists and all items are included
+    # Get or create snapshot safely
     snapshot = create_snapshot(date_obj)
 
-    # Fetch all items for this snapshot
+    # Fetch all items in this snapshot
     items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
 
-    # Group items by category
+    # Group by category
     grouped = {}
     for item_snapshot in items:
         category_name = item_snapshot.item.category.name if item_snapshot.item.category else 'Uncategorized'
@@ -402,7 +402,7 @@ def daily_detail(request, year, month, day):
     context = {
         'snapshot': snapshot,
         'grouped': grouped,
-        'shop_name': request.user.shopsettings.shop_name if hasattr(request.user, 'shopsettings') else 'My Shop',
+        'shop_name': getattr(request.user.shopsettings, 'shop_name', 'My Shop'),
     }
     return render(request, 'inventory/daily_detail.html', context)
 
