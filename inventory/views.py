@@ -294,15 +294,13 @@ def adjust_stock(request, pk=None):
         if item_id and reason and quantity > 0:
             item = get_object_or_404(Item, pk=item_id)
 
-           
             if reason == 'add':
                 item.quantity += quantity
-            elif reason in ['remove', 'adjust']:
+            else:
                 item.quantity -= quantity
 
             item.save()
 
-            
             StockMovement.objects.create(
                 item=item,
                 quantity=quantity,
@@ -318,12 +316,11 @@ def adjust_stock(request, pk=None):
         'items': items,
         'selected_item': None,
         'movements': recent_movements,
-        'today_snapshot': today_snapshot_items,  # match template
+        'today_snapshot': today_snapshot_items,
         'shop_name': shop_settings.shop_name if shop_settings else 'My Shop'
     }
 
     return render(request, 'inventory/adjust_stock.html', context)
-
 # ===========================
 # REPORTS
 # ===========================
