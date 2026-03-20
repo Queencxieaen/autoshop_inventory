@@ -27,13 +27,13 @@ def create_snapshot(snapshot_date=None):
         stock_in = StockMovement.objects.filter(
             item=item,
             reason="add",
-            created_at__date=snapshot_date
+            date__date=snapshot_date
         ).aggregate(total=Sum('quantity'))['total'] or 0
 
         stock_out = StockMovement.objects.filter(
             item=item,
             reason="remove",
-            created_at__date=snapshot_date
+            date__date=snapshot_date
         ).aggregate(total=Sum('quantity'))['total'] or 0
 
         ending = beginning + stock_in - stock_out
