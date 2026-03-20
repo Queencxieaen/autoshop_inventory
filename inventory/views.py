@@ -287,19 +287,22 @@ def adjust_stock(request, pk=None):
     recent_movements = StockMovement.objects.select_related('item', 'user').order_by('-date')[:10]
 
     if request.method == 'POST':
-        item_id = request.POST.get('item')  # match template
+        item_id = request.POST.get('item')
         reason = request.POST.get('reason')
         quantity = int(request.POST.get('quantity', 0))
 
         if item_id and reason and quantity > 0:
             item = get_object_or_404(Item, pk=item_id)
 
+           
             if reason == 'add':
                 item.quantity += quantity
             elif reason in ['remove', 'adjust']:
                 item.quantity -= quantity
+
             item.save()
 
+            
             StockMovement.objects.create(
                 item=item,
                 quantity=quantity,
@@ -307,35 +310,16 @@ def adjust_stock(request, pk=None):
                 user=request.user
             )
 
-            # Update snapshot
-            snapshot_item, _ = DailyItemSnapshot.objects.get_or_create(
-                snapshot=today_snapshot,
-                item=item,
-                defaults={
-                    'beginning_quantity': item.quantity - quantity if reason == 'add' else item.quantity + quantity,
-                    'stock_in': 0,
-                    'stock_out': 0,
-                    'ending_quantity': item.quantity
-                }
-            )
-
-            if reason == 'add':
-                snapshot_item.stock_in += quantity
-            else:
-                snapshot_item.stock_out += quantity
-
-            snapshot_item.ending_quantity = snapshot_item.beginning_quantity + snapshot_item.stock_in - snapshot_item.stock_out
-            snapshot_item.save()
-
             return redirect('adjust_stock')
 
-    shop_name = getattr(request.user, 'shopsettings', None)
+    shop_settings = getattr(request.user, 'shopsettings', None)
+
     context = {
         'items': items,
         'selected_item': None,
         'movements': recent_movements,
-        'today_snapshot_items': today_snapshot_items,
-        'shop_name': shop_name.shop_name if shop_name else 'My Shop'
+        'today_snapshot': today_snapshot_items,  # match template
+        'shop_name': shop_settings.shop_name if shop_settings else 'My Shop'
     }
 
     return render(request, 'inventory/adjust_stock.html', context)
