@@ -1,40 +1,49 @@
-{% extends 'inventory/base.html' %}
+{% extends "inventory/base.html" %}
+
+{% block title %}Edit Category{% endblock %}
 {% load widget_tweaks %}
-
-
 {% block content %}
-
-<div class="p-6 max-w-md mx-auto bg-amber-50 border border-amber-200 rounded-lg shadow">
-
-  <h2 class="text-2xl font-bold text-amber-800 mb-4">
-    ✏️ {{ title }}
-  </h2>
-
-  <form method="POST" class="space-y-4">
-    {% csrf_token %}
-
-    <div>
-      {{ form.name.label_tag }}
-      {{ form.name|add_class:"w-full px-3 py-2 border border-amber-300 rounded focus:outline-none focus:ring focus:ring-amber-200" }}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="p-3 rounded-4 text-white mb-4"
+         style="background: linear-gradient(135deg, #f59e0b, #f97316);">
+        <h4 class="fw-bold mb-1">✏️ Edit Category</h4>
+        <p class="mb-0 small opacity-75">Update category information professionally</p>
     </div>
 
-    <div>
-      {{ form.category.label_tag }}
-      {{ form.category|add_class:"w-full px-3 py-2 border border-amber-300 rounded focus:outline-none focus:ring focus:ring-amber-200" }}
+    <!-- Form Card -->
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="POST">
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <label for="id_name" class="form-label fw-semibold">Category Name</label>
+                    {{ form.name|as_crispy_field }}
+                    {% if form.name.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ form.name.errors.as_text }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <button type="submit" class="btn btn-warning w-100 fw-semibold rounded-3">
+                    Update Category
+                </button>
+                <a href="{% url 'categories' %}" class="btn btn-secondary w-100 mt-2 rounded-3">
+                    Cancel
+                </a>
+            </form>
+        </div>
     </div>
-
-    <div class="flex gap-3">
-      <button type="submit"
-        class="bg-amber-500 text-white px-4 py-2 rounded hover:bg-amber-600 transition">
-        Save
-      </button>
-
-      <a href="{% url 'categories' %}"
-        class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400 transition">
-        Cancel
-      </a>
-    </div>
-  </form>
-
 </div>
 {% endblock %}
