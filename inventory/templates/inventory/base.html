@@ -16,9 +16,9 @@
         }
 
         #sidebar {
-            width: 220px;
+            width: 200px;
             background: #ffffff;
-            border-right: 1px solid #e0e0e0;
+            box-shadow: 2px 0 6px rgba(0,0,0,0.05);
             display: flex;
             flex-direction: column;
             height: 100vh;
@@ -27,22 +27,21 @@
 
         .sidebar-profile {
             text-align: center;
-            padding: 30px 15px;
-            border-bottom: 1px solid #e0e0e0;
+            padding: 25px 15px;
+            border-bottom: 1px solid #e9ecef;
         }
 
         .sidebar-profile img {
-            width: 80px;
-            height: 80px;
+            width: 70px;
+            height: 70px;
             border-radius: 50%;
             object-fit: cover;
-            border: 2px solid #dee2e6;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         .sidebar-profile h4 {
             margin: 0;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
             color: #212529;
         }
@@ -60,16 +59,18 @@
 
         .nav-sidebar a {
             display: block;
-            padding: 12px 25px;
+            padding: 10px 20px;
             color: #495057;
             font-size: 14px;
             text-decoration: none;
-            transition: all 0.2s ease;
+            border-radius: 6px;
+            transition: all 0.15s ease;
         }
 
         .nav-sidebar a:hover {
             background: #f1f3f5;
-            color: #1d4ed8; /* subtle blue */
+            color: #1d4ed8;
+            box-shadow: inset 0 0 0 2px rgba(29,78,216,0.1);
         }
 
         .nav-sidebar a.active {
@@ -85,8 +86,8 @@
 
         /* ---------------- Main Content ---------------- */
         #main-wrapper {
-            margin-left: 220px;
-            width: calc(100% - 220px);
+            margin-left: 200px;
+            width: calc(100% - 200px);
             display: flex;
             flex-direction: column;
             height: 100vh;
@@ -95,10 +96,11 @@
         .topbar {
             height: 60px;
             background: #ffffff;
-            border-bottom: 1px solid #e0e0e0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
             display: flex;
             align-items: center;
             padding: 0 20px;
+            justify-content: space-between;
         }
 
         main {
@@ -118,7 +120,7 @@
 <!-- Sidebar -->
 <aside id="sidebar">
     <div class="sidebar-profile">
-        <img src="{% static 'images/shop_logo.png' %}" alt="Autosthetics Logo">
+        <img src="{% static 'default_profile.jpg' %}" alt="Autosthetics Logo">
         <h4>Autosthetics</h4>
         <p>Inventory System</p>
     </div>
