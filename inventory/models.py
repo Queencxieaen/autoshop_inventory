@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
+from datetime import timedelta
 
 # =========================
 # Shop Settings
@@ -28,15 +29,17 @@ class ShopSettings(models.Model):
     def __str__(self):
         return self.shop_name
 
+
 # =========================
 # Category
 # =========================
 class Category(models.Model):
     name = models.CharField(max_length=255)
-    description = models.TextField(blank=True, null=True)  # Optional description
+    description = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return self.name
+
 
 # =========================
 # Item
@@ -63,12 +66,15 @@ class Item(models.Model):
     price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     unit = models.CharField(max_length=10, choices=UNIT_CHOICES, default='pcs')
-    created_at = models.DateTimeField(auto_now_add=True)  # ADD THIS
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
 
 
+# =========================
+# Stock Movements
+# =========================
 class StockMovement(models.Model):
     REASON_CHOICES = [('add', 'Stock In'), ('remove', 'Stock Out'), ('adjust', 'Adjustment')]
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
@@ -81,14 +87,15 @@ class StockMovement(models.Model):
     def __str__(self):
         return f"{self.item.name} | {self.reason} | {self.quantity}"
 
+
 # =========================
-# Daily Snapshot
+# Daily Snapshots
 # =========================
 class DailySnapshot(models.Model):
     date = models.DateField(unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):  
+    def __str__(self):
         return str(self.date)
 
 
@@ -101,11 +108,18 @@ class DailyItemSnapshot(models.Model):
     ending_quantity = models.IntegerField()
 
 
-
+# =========================
+# Password Reset OTP
+# =========================
 class PasswordResetOTP(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     code = models.CharField(max_length=6)
     created_at = models.DateTimeField(auto_now_add=True)
+    expired = models.BooleanField(default=False)
 
     def is_valid(self):
-        return timezone.now() < self.created_at + timezone.timedelta(minutes=10)
+        """Check if OTP is still valid (10 min)"""
+        return not self.expired and timezone.now() <= self.created_at + timedelta(minutes=10)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.code}"

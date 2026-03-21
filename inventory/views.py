@@ -9,6 +9,7 @@ from weasyprint import HTML
 
 from django.conf import settings
 from .models import PasswordResetOTP
+from django.contrib.auth.models import User
 import random
 
 from django.utils import timezone
@@ -971,18 +972,6 @@ def verify_otp(request):
 
     return render(request, "otp_verify.html")
 
-
- from datetime import timedelta
-
-class PasswordResetOTP(models.Model):
-    # ...
-    created_at = models.DateTimeField(auto_now_add=True)
-    expired = models.BooleanField(default=False)
-
-    def is_valid(self):
-        if self.expired:
-            return False
-        return timezone.now() <= self.created_at + timedelta(minutes=10)
 
 
 def set_new_password(request):
