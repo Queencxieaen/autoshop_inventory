@@ -7,13 +7,18 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-secret-key')
-DEBUG = True  # Set False in production
-ALLOWED_HOSTS = ['*']
+DEBUG = False 
+ALLOWED_HOSTS = ['autoshop-inventory-vqqq.onrender.com']
 CSRF_TRUSTED_ORIGINS = ['https://autoshop-inventory-vqqq.onrender.com']
 
-SECURE_SSL_REDIRECT = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+if DEBUG:
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+else:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 # -------------------------
 # INSTALLED APPS
