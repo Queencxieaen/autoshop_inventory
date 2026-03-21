@@ -7,7 +7,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-secret-key')
-DEBUG = False  # Production
+DEBUG = False  
 
 ALLOWED_HOSTS = ['autoshop-inventory-vqqq.onrender.com']
 CSRF_TRUSTED_ORIGINS = ['https://autoshop-inventory-vqqq.onrender.com']
