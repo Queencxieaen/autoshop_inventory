@@ -9,124 +9,93 @@
     <div class="p-3 rounded-4 text-white mb-4"
          style="background: linear-gradient(135deg, #0d6efd, #6610f2);
                 box-shadow: 0 8px 20px rgba(13,110,253,0.14);">
-        <h4 class="fw-bold mb-1">⚙️ Settings</h4>
+        <h4 class="fw-bold mb-1">Settings</h4>
         <p class="mb-0 small opacity-75">
             Manage account and shop preferences
         </p>
     </div>
 
-    <form method="POST" enctype="multipart/form-data">
+    <form method="POST">
         {% csrf_token %}
 
         <!-- ACCOUNT INFO -->
         <div class="card shadow-sm border-0 mb-3">
             <div class="card-body">
-                <h5 class="card-title mb-3">👤 Account</h5>
+                <h5 class="card-title mb-3">Account</h5>
 
                 <div class="row">
-                    <div class="col-md-6">
+                    <div class="col-md-6 mb-3">
                         <label class="form-label small text-muted">Username</label>
-                        <input type="text"
-                               name="username"
-                               class="form-control"
-                               value="{{ username }}"
-                               required>
+                        <input type="text" name="username" class="form-control" value="{{ username }}" required>
                     </div>
 
-                    <div class="col-md-6">
+                    <div class="col-md-6 mb-3">
                         <label class="form-label small text-muted">Email</label>
-                        <input type="email"
-                               name="email"
-                               class="form-control"
-                               value="{{ email }}">
+                        <input type="email" name="email" class="form-control" value="{{ email }}">
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- PASSWORD CHANGE (Optional) -->
-       <div class="card shadow-sm border-0 mb-3">
-    <div class="card-body">
-        <h5 class="card-title mb-3">🔑 Change Password</h5>
+        <!-- PASSWORD CHANGE -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-body">
+                <h5 class="card-title mb-3">Change Password</h5>
 
-        <!-- Current Password -->
-        <div class="mb-2 position-relative">
-            <label class="form-label small text-muted">Current Password</label>
+                <div class="mb-3">
+                    <label class="form-label small text-muted">Current Password</label>
+                    <div class="input-group">
+                        <input type="password" name="current_password" id="current_password" class="form-control" required>
+                        <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('current_password','toggleCurrent')">
+                            <i id="toggleCurrent" class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                </div>
 
-            <div class="input-group">
-                <input type="password"
-                       name="current_password"
-                       id="current_password"
-                       class="form-control"
-                       required>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small text-muted">New Password</label>
+                        <div class="input-group">
+                            <input type="password" name="new_password" id="new_password" class="form-control">
+                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('new_password','toggleNew')">
+                                <i id="toggleNew" class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                    </div>
 
-                <button class="btn btn-outline-secondary"
-                        type="button"
-                        onclick="togglePassword('current_password', 'toggleCurrent')">
-                    <i id="toggleCurrent" class="bi bi-eye"></i>
-                </button>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small text-muted">Confirm New Password</label>
+                        <div class="input-group">
+                            <input type="password" name="confirm_password" id="confirm_password" class="form-control">
+                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('confirm_password','toggleConfirm')">
+                                <i id="toggleConfirm" class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="small text-muted mt-1">
+                    Leave blank if you don’t want to change your password.
+                </p>
             </div>
         </div>
-
-        <!-- New Password -->
-        <div class="row">
-            <div class="col-md-6">
-                <label class="form-label small text-muted">New Password</label>
-
-                <div class="input-group">
-                    <input type="password"
-                           name="new_password"
-                           id="new_password"
-                           class="form-control">
-
-                    <button class="btn btn-outline-secondary"
-                            type="button"
-                            onclick="togglePassword('new_password', 'toggleNew')">
-                        <i id="toggleNew" class="bi bi-eye"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div class="col-md-6">
-                <label class="form-label small text-muted">Confirm New Password</label>
-
-                <div class="input-group">
-                    <input type="password"
-                           name="confirm_password"
-                           id="confirm_password"
-                           class="form-control">
-
-                    <button class="btn btn-outline-secondary"
-                            type="button"
-                            onclick="togglePassword('confirm_password', 'toggleConfirm')">
-                        <i id="toggleConfirm" class="bi bi-eye"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <p class="small text-muted mt-2">
-            Leave blank if you don’t want to change password.
-        </p>
-    </div>
-</div>
 
         <!-- SHOP INFO -->
         <div class="card shadow-sm border-0 mb-3">
             <div class="card-body">
-                <h5 class="card-title mb-3">🏬 Shop Information</h5>
+                <h5 class="card-title mb-3">Shop Information</h5>
 
-                <div class="mb-2">
+                <div class="mb-3">
                     <label class="form-label small text-muted">Shop Name</label>
                     {{ form.shop_name }}
                 </div>
 
-                <div class="mb-2">
+                <div class="mb-3">
                     <label class="form-label small text-muted">Address</label>
                     {{ form.address }}
                 </div>
 
-                <div class="mb-2">
+                <div class="mb-3">
                     <label class="form-label small text-muted">Contact</label>
                     {{ form.contact }}
                 </div>
@@ -136,10 +105,12 @@
         <!-- INVENTORY SETTINGS -->
         <div class="card shadow-sm border-0 mb-3">
             <div class="card-body">
-                <h5 class="card-title mb-3">📦 Inventory</h5>
+                <h5 class="card-title mb-3">Inventory</h5>
 
-                <label class="form-label small text-muted">Low Stock Limit</label>
-                {{ form.low_stock_limit }}
+                <div class="mb-2">
+                    <label class="form-label small text-muted">Low Stock Limit</label>
+                    {{ form.low_stock_limit }}
+                </div>
 
                 <p class="small text-muted mt-1">
                     Items at or below this number will appear as low stock.
@@ -147,78 +118,29 @@
             </div>
         </div>
 
-        <!-- PROFILE IMAGE -->
-        <div class="card shadow-sm border-0 mb-3">
-            <div class="card-body">
-                <h5 class="card-title mb-3">👤 Profile Image</h5>
-
-                <div class="mb-3">
-                    {% if profile_image %}
-                        <img id="profilePreview"
-                             src="{{ profile_image.url }}"
-                             class="rounded-circle"
-                             style="width: 100px; height: 100px; object-fit: cover; border: 2px solid #e5e7eb;">
-                    {% else %}
-                        <img id="profilePreview"
-                             class="rounded-circle"
-                             style="width: 100px; height: 100px; object-fit: cover; display:none;">
-                    {% endif %}
-                </div>
-
-                {{ form.profile_image }}
-            </div>
-        </div>
-
         <!-- ACTIONS -->
         <div class="d-flex justify-content-end gap-2">
-            <button type="submit" class="btn btn-warning">
+            <button type="submit" class="btn btn-primary">
                 Save Settings
             </button>
         </div>
-
     </form>
 
 </div>
 
-<!-- LIVE IMAGE PREVIEW -->
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    const input = document.querySelector('input[name="profile_image"]');
-    const preview = document.getElementById('profilePreview');
-
-    if (input) {
-        input.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    preview.src = event.target.result;
-                    preview.style.display = "block";
-                }
-                reader.readAsDataURL(file);
-            } else {
-                preview.src = "";
-                preview.style.display = "none";
-            }
-        });
-    }
-});
-</script>
+<!-- PASSWORD TOGGLE SCRIPT -->
 <script>
 function togglePassword(fieldId, iconId) {
     const field = document.getElementById(fieldId);
     const icon = document.getElementById(iconId);
-
     if (field.type === "password") {
         field.type = "text";
-        icon.classList.remove("bi-eye");
-        icon.classList.add("bi-eye-slash");
+        icon.classList.replace("bi-eye", "bi-eye-slash");
     } else {
         field.type = "password";
-        icon.classList.remove("bi-eye-slash");
-        icon.classList.add("bi-eye");
+        icon.classList.replace("bi-eye-slash", "bi-eye");
     }
 }
 </script>
+
 {% endblock %}
