@@ -3,17 +3,18 @@
 {% block title %}Add Category{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container py-4">
 
     <!-- Header -->
-    <div class="p-4 mb-4 rounded-4 text-white"
-         style="background: linear-gradient(135deg, #f59e0b, #f97316); box-shadow: 0 4px 15px rgba(245,158,11,0.3);">
-        <h4 class="fw-bold mb-1">Add Category</h4>
-        <p class="mb-0 small opacity-75">Create a new inventory category professionally</p>
+    <div class="mb-4">
+        <h1 class="fw-bold mb-1">Add Category</h1>
+        <p class="text-muted mb-0">
+            Create a new inventory category
+        </p>
     </div>
 
-    <!-- Form Card -->
-    <div class="card shadow-sm border-0 rounded-4 mx-auto" style="max-width: 600px;">
+    <!-- Form Card (centered & responsive) -->
+    <div class="card shadow-sm border-0 mx-auto" style="max-width: 600px; border-radius: 14px;">
         <div class="card-body p-4">
 
             {% if messages %}
@@ -25,55 +26,67 @@
                 {% endfor %}
             {% endif %}
 
-            <form method="POST" class="needs-validation" novalidate>
+            <form method="POST">
                 {% csrf_token %}
 
-                <div class="mb-4">
+                <!-- Category Name -->
+                <div class="mb-3">
                     <label for="id_name" class="form-label fw-semibold">Category Name</label>
-                    {{ form.name|add_class:"form-control form-control-lg" }}
+                    <input type="text" name="name" id="id_name" class="form-control form-control-lg" 
+                           value="{{ form.name.value|default_if_none:'' }}" placeholder="Enter category name" required>
                     {% if form.name.errors %}
-                        <div class="text-danger small mt-1">{{ form.name.errors.as_text }}</div>
+                        <div class="text-danger small mt-1">
+                            {{ form.name.errors.as_text|escape }}
+                        </div>
                     {% endif %}
                 </div>
 
-                <div class="mb-4">
+                <!-- Category Description -->
+                <div class="mb-3">
                     <label for="id_description" class="form-label fw-semibold">Description</label>
-                    {{ form.description|add_class:"form-control form-control-lg" }}
+                    <textarea name="description" id="id_description" class="form-control" 
+                              placeholder="Optional description">{{ form.description.value|default_if_none:'' }}</textarea>
                     {% if form.description.errors %}
-                        <div class="text-danger small mt-1">{{ form.description.errors.as_text }}</div>
+                        <div class="text-danger small mt-1">
+                            {{ form.description.errors.as_text|escape }}
+                        </div>
                     {% endif %}
                 </div>
 
-                <div class="d-grid gap-2">
-                    <button type="submit" class="btn btn-dark btn-lg fw-semibold rounded-3">
+                <!-- Submit -->
+                <div class="d-grid mt-3">
+                    <button type="submit" class="btn btn-primary fw-semibold">
                         Add Category
                     </button>
-                    <a href="{% url 'categories' %}" class="btn btn-outline-secondary btn-lg rounded-3">
-                        Back to Categories
-                    </a>
                 </div>
+
             </form>
 
         </div>
     </div>
 
+    <!-- Back Link -->
+    <div class="text-center mt-3">
+        <a href="{% url 'categories' %}" class="text-decoration-none">
+            ← Back to Categories
+        </a>
+    </div>
 </div>
 
-<!-- Bootstrap custom validation -->
-<script>
-(function () {
-    'use strict';
-    const forms = document.querySelectorAll('.needs-validation');
-    Array.from(forms).forEach(function (form) {
-        form.addEventListener('submit', function (event) {
-            if (!form.checkValidity()) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            form.classList.add('was-validated');
-        }, false);
-    });
-})();
-</script>
+<style>
+    /* Input & textarea styling */
+    input.form-control, textarea.form-control {
+        border-radius: 10px;
+        padding: 10px;
+    }
 
+    /* Button hover effect */
+    .btn {
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    }
+</style>
 {% endblock %}
