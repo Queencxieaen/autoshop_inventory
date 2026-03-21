@@ -1,18 +1,23 @@
 import os
 from pathlib import Path
 
+# -------------------------
+# BASE SETTINGS
+# -------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Security
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-secret-key')
-DEBUG = True  # Production
+DEBUG = True  # Set False in production
 ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = ['https://autoshop-inventory-vqqq.onrender.com']
-SECURE_SSL_REDIRECT = True  # Redirect HTTP to HTTPS
+
+SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
-# Applications
+# -------------------------
+# INSTALLED APPS
+# -------------------------
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -27,6 +32,9 @@ INSTALLED_APPS = [
     'cloudinary_storage',
 ]
 
+# -------------------------
+# MIDDLEWARE
+# -------------------------
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Static files in production
@@ -38,6 +46,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# -------------------------
+# URLS & TEMPLATES
+# -------------------------
 ROOT_URLCONF = 'autoshop.urls'
 
 TEMPLATES = [
@@ -58,7 +69,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'autoshop.wsgi.application'
 
-# Database
+# -------------------------
+# DATABASE
+# -------------------------
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -66,7 +79,9 @@ DATABASES = {
     }
 }
 
-# Password validators
+# -------------------------
+# PASSWORD VALIDATORS
+# -------------------------
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -74,32 +89,47 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# Internationalization
+# -------------------------
+# INTERNATIONALIZATION
+# -------------------------
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Asia/Manila'
 USE_I18N = True
 USE_TZ = True
 
-# Static files
+# -------------------------
+# STATIC FILES
+# -------------------------
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'inventory' / 'static']
 
-# Cloudinary media files
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
-    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
-    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
-}
-MEDIA_URL = '/media/'
+# -------------------------
+# MEDIA / FILE STORAGE
+# -------------------------
+# Use local media for development, Cloudinary for production
+if DEBUG:
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = BASE_DIR / 'media'
+    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+else:
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    CLOUDINARY_STORAGE = {
+        'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+        'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+        'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
+    }
 
-# Login
+# -------------------------
+# LOGIN SETTINGS
+# -------------------------
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/login/'
 
-# Email (use environment variables)
+# -------------------------
+# EMAIL SETTINGS
+# -------------------------
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
@@ -107,5 +137,7 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'lastiimadoqueencyann01@gmail.com')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'vpdy gpof vvod braz')
 
-# Default auto field
+# -------------------------
+# DEFAULT AUTO FIELD
+# -------------------------
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

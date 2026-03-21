@@ -117,15 +117,20 @@
 <aside id="sidebar">
 
     <!-- Logo Area -->
-   <div class="sidebar-profile text-center py-3">
-    {% if request.user.shopsettings.profile_image %}
-        <img src="{{ request.user.shopsettings.profile_image.url }}" alt="Profile Picture" class="sidebar-profile-pic mb-2">
-    {% else %}
-        <img src="{% static 'images/default_profile.png' %}" alt="Profile Picture" class="sidebar-profile-pic mb-2">
-    {% endif %}
-    <h4 class="mb-1">Autosthetics</h4>
-    <p class="text-muted small mb-0">Inventory System</p>
-</div>
+    <div class="sidebar-profile text-center py-3">
+        {% if request.user.shopsettings.profile_image %}
+            <img src="{{ request.user.shopsettings.profile_image.url }}" 
+                alt="{{ request.user.username }}" 
+                class="sidebar-profile-pic mb-2"
+                onerror="this.src='{% static 'images/default_profile.png' %}'">
+        {% else %}
+            <img src="{% static 'images/default_profile.png' %}" 
+                alt="Default Profile" 
+                class="sidebar-profile-pic mb-2">
+        {% endif %}
+        <h4 class="mb-1">Autosthetics</h4>
+        <p class="text-muted small mb-0">Inventory System</p>
+    </div>
 
     <nav class="nav flex-column px-3">
 
