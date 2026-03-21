@@ -932,18 +932,23 @@ def send_otp(request):
         if not user:
             return render(request, "otp_request.html", {"error": "Email not found."})
 
+        # Expire previous OTPs
+        PasswordResetOTP.objects.filter(user=user).update(expired=True)
+
+        # Generate new OTP
         code = str(random.randint(100000, 999999))
+        PasswordResetOTP.objects.create(user=user, code=code, created_at=timezone.now(), expired=False)
 
-        PasswordResetOTP.objects.create(user=user, code=code)
-
+        # Send email
         send_mail(
             "Password Reset OTP",
-            f"Your OTP code is: {code}",
+            f"Your OTP code is: {code}\nIt expires in 10 minutes.",
             "no-reply@autosthetics.com",
             [email],
             fail_silently=False,
         )
 
+        messages.success(request, "OTP sent to your email. Please check your inbox.")
         return redirect("verify_otp")
 
     return render(request, "otp_request.html")
@@ -952,10 +957,13 @@ def send_otp(request):
 def verify_otp(request):
     if request.method == "POST":
         code = request.POST.get("code")
+        otp = PasswordResetOTP.objects.filter(code=code, expired=False).first()
 
-        otp = PasswordResetOTP.objects.filter(code=code).first()
+        if otp and otp.is_valid():  # make sure is_valid() checks 10-min expiration
+            # Expire this OTP after use
+            otp.expired = True
+            otp.save()
 
-        if otp and otp.is_valid():
             request.session['reset_user_id'] = otp.user.id
             return redirect("set_new_password")
 
@@ -964,18 +972,44 @@ def verify_otp(request):
     return render(request, "otp_verify.html")
 
 
+ from datetime import timedelta
+
+class PasswordResetOTP(models.Model):
+    # ...
+    created_at = models.DateTimeField(auto_now_add=True)
+    expired = models.BooleanField(default=False)
+
+    def is_valid(self):
+        if self.expired:
+            return False
+        return timezone.now() <= self.created_at + timedelta(minutes=10)
+
+
 def set_new_password(request):
     if request.method == "POST":
         password = request.POST.get("password")
+        confirm_password = request.POST.get("confirm_password")
         user_id = request.session.get('reset_user_id')
 
         if not user_id:
+            messages.error(request, "Session expired. Please request a new OTP.")
             return redirect("send_otp")
+
+        if not password or not confirm_password:
+            messages.error(request, "Please fill out both fields.")
+            return redirect("set_new_password")
+
+        if password != confirm_password:
+            messages.error(request, "Passwords do not match.")
+            return redirect("set_new_password")
 
         user = User.objects.get(id=user_id)
         user.set_password(password)
         user.save()
 
+        # Clear session after successful reset
+        request.session.pop('reset_user_id', None)
+        messages.success(request, "Password updated successfully! You can now log in.")
         return redirect("login")
 
     return render(request, "set_new_password.html")

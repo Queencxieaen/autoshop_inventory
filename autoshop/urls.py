@@ -33,7 +33,11 @@ urlpatterns = [
 
     path('logout/', views.user_logout, name='logout'),
 
-    # PASSWORD RESET
+    # -------------------------
+    # PASSWORD RESET (Django + OTP)
+    # -------------------------
+
+    # Django built-in email reset
     path('password_reset/', auth_views.PasswordResetView.as_view(
         template_name='inventory/password_reset.html'
     ), name='password_reset'),
@@ -49,6 +53,12 @@ urlpatterns = [
     path('password_reset_complete/', auth_views.PasswordResetCompleteView.as_view(
         template_name='inventory/password_reset_complete.html'
     ), name='password_reset_complete'),
+
+    # OTP-based reset (renamed to avoid conflict)
+    path('password-reset/send/', views.send_otp, name='send_otp'),
+    path('password-reset/verify/', views.verify_otp, name='verify_otp'),
+    path('password-reset/set/', views.set_new_password, name='set_new_password'),
+
 
     # AJAX
     path('ajax/stock-movement/', views.ajax_stock_movement, name='ajax_stock_movement'),
@@ -85,10 +95,6 @@ urlpatterns = [
     path("reports/monthly/<int:year>/<int:month>/pdf/", views.monthly_summary_pdf, name="monthly_summary_pdf"),
 
     path("reports/custom-summary/", views.custom_summary, name="custom_summary"),
-
-    path('password-reset/', views.send_otp, name='send_otp'),
-    path('verify-otp/', views.verify_otp, name='verify_otp'),
-    path('set-new-password/', views.set_new_password, name='set_new_password'),
 ]
 
 # MEDIA FILES (development)

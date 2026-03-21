@@ -1,0 +1,55 @@
+{% extends "inventory/base.html" %}
+
+{% block content %}
+<div class="container mt-5" style="max-width: 500px;">
+    <h2 class="mb-4">Verify OTP</h2>
+
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    <p id="timer" class="mb-3">OTP expires in: 10:00</p>
+
+    <form method="POST">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="code" class="form-label">OTP Code</label>
+            <input type="text" class="form-control" id="code" name="code" placeholder="Enter the 6-digit code" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">Verify OTP</button>
+        <a href="{% url 'send_otp' %}" class="btn btn-link mt-2">Resend OTP</a>
+    </form>
+</div>
+
+<script>
+let minutes = 10;
+let seconds = 0;
+
+function startTimer() {
+    const timerDisplay = document.getElementById('timer');
+    const submitButton = document.querySelector("form button[type='submit']");
+
+    const interval = setInterval(function() {
+        if (seconds === 0) {
+            if (minutes === 0) {
+                clearInterval(interval);
+                timerDisplay.textContent = "OTP expired! Please request a new one.";
+                submitButton.disabled = true;
+                return;
+            }
+            minutes--;
+            seconds = 59;
+        } else {
+            seconds--;
+        }
+
+        let mm = minutes.toString().padStart(2, '0');
+        let ss = seconds.toString().padStart(2, '0');
+        timerDisplay.textContent = `OTP expires in: ${mm}:${ss}`;
+    }, 1000);
+}
+
+startTimer();
+</script>
+{% endblock %}
