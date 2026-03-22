@@ -30,8 +30,6 @@ from reportlab.lib.units import inch
 
 from .models import Item, Category, StockMovement, ShopSettings, DailySnapshot, DailyItemSnapshot
 from .forms import ItemForm, CategoryForm, ShopSettingsForm, AdjustStockForm
-from django.utils import timezone
-
 
 from django.db.models import Count
 from django.core.mail import send_mail
@@ -919,32 +917,36 @@ def test_msg(request):
     return render(request, "inventory/dashboard.html")
 
 
-
 def send_otp(request):
     if request.method == "POST":
         email = request.POST.get("email")
         user = User.objects.filter(email=email).first()
 
         if not user:
-            return render(request, "otp_request.html", {"error": "Email not found."})
+            return render(request, "inventory/otp_request.html", {"error": "Email not found."})
 
-        # Expire previous OTPs
         PasswordResetOTP.objects.filter(user=user).update(expired=True)
 
-        # Generate new OTP
         code = str(random.randint(100000, 999999))
-        PasswordResetOTP.objects.create(user=user, code=code, created_at=timezone.now(), expired=False)
-
-        # Send email
-        send_mail(
-            "Password Reset OTP",
-            f"Your OTP code is: {code}\nIt expires in 10 minutes.",
-            "no-reply@autosthetics.com",
-            [email],
-            fail_silently=True,
+        PasswordResetOTP.objects.create(
+            user=user,
+            code=code,
+            created_at=timezone.now(),
+            expired=False
         )
 
-        messages.success(request, "OTP sent to your email. Please check your inbox.")
+        try:
+            send_mail(
+                "Password Reset OTP",
+                f"Your OTP code is: {code}\nIt expires in 10 minutes.",
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            print("EMAIL ERROR:", e)
+
+        messages.success(request, "OTP sent to your email.")
         return redirect("verify_otp")
 
     return render(request, "inventory/otp_request.html")
