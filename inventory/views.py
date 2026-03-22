@@ -952,7 +952,7 @@ def send_otp(request):
         messages.success(request, "OTP sent to your email. Please check your inbox.")
         return redirect("verify_otp")
 
-    return render(request, "otp_request.html")
+    return render(request, "inventory/otp_request.html")
 
 
 def verify_otp(request):
@@ -968,9 +968,9 @@ def verify_otp(request):
             request.session['reset_user_id'] = otp.user.id
             return redirect("set_new_password")
 
-        return render(request, "otp_verify.html", {"error": "Invalid or expired code."})
+        return render(request, "inventory/otp_verify.html", {"error": "Invalid or expired code."})
 
-    return render(request, "otp_verify.html")
+    return render(request, "inventory/otp_verify.html")
 
 
 
@@ -1001,4 +1001,4 @@ def set_new_password(request):
         messages.success(request, "Password updated successfully! You can now log in.")
         return redirect("login")
 
-    return render(request, "set_new_password.html")
+    return render(request, "inventory/set_new_password.html")
