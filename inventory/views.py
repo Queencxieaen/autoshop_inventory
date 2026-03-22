@@ -946,7 +946,7 @@ def send_otp(request):
             f"Your OTP code is: {code}\nIt expires in 10 minutes.",
             "no-reply@autosthetics.com",
             [email],
-            fail_silently=False,
+            fail_silently=True,
         )
 
         messages.success(request, "OTP sent to your email. Please check your inbox.")
