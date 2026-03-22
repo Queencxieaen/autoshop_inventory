@@ -5,7 +5,6 @@ from dateutil.relativedelta import relativedelta
 from collections import defaultdict
 import re
 from django.template.loader import render_to_string
-from weasyprint import HTML
 
 from django.conf import settings
 from .models import PasswordResetOTP
@@ -473,6 +472,7 @@ def delete_selected_reports(request, year, month):
 
 @login_required
 def export_selected_days_pdf(request, year, month):
+    from weasyprint import HTML
 
     selected_dates = request.POST.get('selected_dates')
     date_obj = parse_date(selected_dates)
@@ -556,17 +556,11 @@ def monthly_summary(request, year, month):
         "month_name": month_name,
     })
 
-from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
-from django.template.loader import render_to_string
-from weasyprint import HTML
-from datetime import datetime
-
-from .models import DailyItemSnapshot, ShopSettings
 
 @login_required
 def monthly_summary_pdf(request, year, month):
-    # Fetch all records for the month
+    from weasyprint import HTML
+    
     records = DailyItemSnapshot.objects.filter(
         snapshot__date__year=year,
         snapshot__date__month=month
@@ -699,6 +693,7 @@ def weekly_summary(request):
 
 @login_required
 def weekly_summary_pdf(request):
+    from weasyprint import HTML
 
     selected_weeks = request.POST.getlist("selected_weeks")
 
