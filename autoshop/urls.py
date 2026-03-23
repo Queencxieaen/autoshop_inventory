@@ -15,7 +15,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     # DASHBOARD
-    path('', views.dashboard, name='dashboard'),
+    path('dashboard/', views.dashboard, name='dashboard'),
 
     # path('', include(tf_urls)),
 

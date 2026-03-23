@@ -52,8 +52,11 @@ def user_login(request):
             if not remember:
                 request.session.set_expiry(0)
 
-            messages.success(request, "Welcome back!")
-            return redirect('dashboard')
+            messages.success(request, f"Welcome back, {user.username}!")
+
+            # Handle next parameter
+            next_url = request.GET.get('next') or 'dashboard'
+            return redirect(next_url)
         else:
             messages.error(request, "Invalid username or password.")
 
@@ -225,13 +228,17 @@ def categories(request):
         'query': query,
     })
 
+
 @login_required
 def add_category(request):
     if request.method == "POST":
         form = CategoryForm(request.POST)
         if form.is_valid():
-            form.save()
+            category = form.save()  # save and capture object
+            messages.success(request, f"Category '{category.name}' was added successfully!")
             return redirect('categories')
+        else:
+            messages.error(request, "Please correct the errors below.")
     else:
         form = CategoryForm()
 
@@ -257,7 +264,7 @@ def delete_category(request, pk):
 
     if request.method == "POST":
         category.delete()
-        messages.success(request, f'Category "{category.name}" deleted.')
+        messages.success(request, f'Category {category.name} deleted.')
         return redirect('categories')
 
     return redirect('categories')

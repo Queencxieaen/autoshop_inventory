@@ -20,13 +20,7 @@
             <div class="alert alert-danger">{{ error }}</div>
         {% endif %}
 
-  
-last_otp_time = request.session.get('otp_created_at')
-if last_otp_time:
-    last_otp_time = timezone.datetime.fromisoformat(last_otp_time)
-    if timezone.now() < last_otp_time + datetime.timedelta(seconds=60):
-        messages.error(request, "Please wait before requesting another OTP.")
-        return redirect('verify_otp')      
+   
         <form method="POST" id="otp-request-form">
             {% csrf_token %}
             <div class="mb-3">
