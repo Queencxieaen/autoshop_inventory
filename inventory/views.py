@@ -290,8 +290,8 @@ def low_stock_page(request):
 def adjust_stock(request, pk=None):
     """
     Adjust stock quantities for items and update daily snapshots.
+    Prevents stock out below 0 or current item quantity.
     """
-    # Always create or get today's snapshot
     today = timezone.localdate()
     today_snapshot = create_snapshot(today)
 
@@ -300,7 +300,6 @@ def adjust_stock(request, pk=None):
     today_snapshot_items = DailyItemSnapshot.objects.filter(snapshot=today_snapshot)
 
     if request.method == 'POST':
-        # Safe access to POST parameters
         item_id = request.POST.get('item')
         reason = request.POST.get('reason')
         quantity_str = request.POST.get('quantity', '0')
@@ -311,32 +310,37 @@ def adjust_stock(request, pk=None):
         except (TypeError, ValueError):
             quantity = 0
 
-        if item_id and reason in ['add', 'remove', 'adjust'] and quantity > 0:
+        if item_id and reason in ['add', 'remove'] and quantity > 0:
             item = get_object_or_404(Item, pk=item_id)
 
-            # Calculate new quantity
+            # Prevent stock out below 0
+            if reason == 'remove' and quantity > item.quantity:
+                messages.error(
+                    request,
+                    f"Cannot remove {quantity} units. '{item.name}' only has {item.quantity} in stock."
+                )
+                return redirect('adjust_stock')
+
+            # Update item quantity
             if reason == 'add':
                 item.quantity += quantity
-            else:  # remove or adjust
+            else:  # remove
                 item.quantity -= quantity
-                if item.quantity < 0:
-                    item.quantity = 0  # prevent negative stock
 
             item.save()
 
-            # Update or create DailyItemSnapshot
+            # Update or create daily snapshot
             snapshot_item, created = DailyItemSnapshot.objects.get_or_create(
                 snapshot=today_snapshot,
                 item=item,
                 defaults={
-                    "beginning_quantity": item.quantity if reason == 'remove' else item.quantity - quantity,
+                    "beginning_quantity": item.quantity - quantity if reason == 'add' else item.quantity + quantity,
                     "stock_in": 0,
                     "stock_out": 0,
                     "ending_quantity": item.quantity,
                 }
             )
 
-            # Update snapshot counts
             if reason == 'add':
                 snapshot_item.stock_in += quantity
             else:
@@ -355,11 +359,10 @@ def adjust_stock(request, pk=None):
 
             messages.success(request, f"Stock for '{item.name}' updated successfully.")
             return redirect('adjust_stock')
-
         else:
             messages.error(request, "Invalid input. Please check your item, reason, and quantity.")
 
-    # Get shop name safely
+    # Shop name for header (fallback if user has no shop settings)
     shop_settings = getattr(request.user, 'shopsettings', None)
     shop_name = shop_settings.shop_name if shop_settings else 'My Shop'
 
@@ -367,7 +370,7 @@ def adjust_stock(request, pk=None):
         "items": items,
         "selected_item": None,
         "movements": recent_movements,
-        "today_snapshot_items": today_snapshot_items,
+        "today_snapshot": today_snapshot_items,
         "shop_name": shop_name,
     }
     return render(request, "inventory/adjust_stock.html", context)

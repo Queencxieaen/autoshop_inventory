@@ -17,7 +17,7 @@
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
         <div class="p-4">
             <div class="row g-4">
-
+   
                 <!-- LEFT: Stock Form -->
                 <div class="col-lg-4">
                     <div class="bg-light p-4 rounded-4">
@@ -82,15 +82,19 @@
                                     </thead>
                                     <tbody>
                                         {% for snapshot in today_snapshot %}
-                                        {% with latest=latest_movements|dict_key:snapshot.item.id %}
                                         <tr>
                                             <td>{{ snapshot.item.name }}</td>
                                             <td>{{ snapshot.beginning_quantity }}</td>
-                                            <td>{{ latest.stock_in_sum|default:0 }}</td>
-                                            <td>{{ latest.stock_out_sum|default:0 }}</td>
+                                            <td>{{ snapshot.stock_in }}</td>
+                                            <td>{{ snapshot.stock_out }}</td>
                                             <td>{{ snapshot.ending_quantity }}</td>
                                         </tr>
-                                        {% endwith %}
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-4">
+                                                No stock snapshot for today.
+                                            </td>
+                                        </tr>
                                         {% endfor %}
                                     </tbody>
                                 </table>
