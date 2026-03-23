@@ -7,20 +7,25 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-secret-key')
-DEBUG = False  
+DEBUG = True  # make sure this is True locally
 
-ALLOWED_HOSTS = ['autoshop-inventory-vqqq.onrender.com']
-CSRF_TRUSTED_ORIGINS = ['https://autoshop-inventory-vqqq.onrender.com']
+if DEBUG:
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8000', 'http://localhost:8000']
+else:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    CSRF_TRUSTED_ORIGINS = ['https://autoshop-inventory-vqqq.onrender.com']
 
-# -------------------------
-# SECURITY
-# -------------------------
-SECURE_SSL_REDIRECT = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-SECURE_HSTS_SECONDS = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
+ALLOWED_HOSTS = [
+    'autoshop-inventory-vqqq.onrender.com',
+     '127.0.0.1', 
+     'localhost',
+     ]
+
 
 # -------------------------
 # INSTALLED APPS
@@ -136,8 +141,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'lastiimadoqueencyann01@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'vpdygpofvvodbraz')
 
 # -------------------------
 # DEFAULT AUTO FIELD

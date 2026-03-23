@@ -111,6 +111,7 @@ class DailyItemSnapshot(models.Model):
 # =========================
 # Password Reset OTP
 # =========================
+
 class PasswordResetOTP(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     code = models.CharField(max_length=6)
@@ -118,7 +119,7 @@ class PasswordResetOTP(models.Model):
     expired = models.BooleanField(default=False)
 
     def is_valid(self):
-        """Check if OTP is still valid (10 min)"""
+        """Check if OTP is still valid (10 minutes)"""
         return not self.expired and timezone.now() <= self.created_at + timedelta(minutes=10)
 
     def __str__(self):

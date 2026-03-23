@@ -68,9 +68,12 @@ def user_logout(request):
 # ===========================
 # DASHBOARD
 # ===========================
-
 @login_required
 def dashboard(request):
+    today = timezone.localdate()
+
+    create_snapshot(today)
+
     total_items = Item.objects.aggregate(total=Sum('quantity'))['total'] or 0
     low_stock = Item.objects.filter(quantity__lte=5).count()
     well_stock = Item.objects.filter(quantity__gt=10).count()
@@ -283,7 +286,7 @@ def adjust_stock(request, pk=None):
     """
     # Always create or get today's snapshot
     today = timezone.localdate()
-    today_snapshot, _ = DailySnapshot.objects.get_or_create(date=today)
+    today_snapshot = create_snapshot(today)
 
     items = Item.objects.all().order_by('name')
     recent_movements = StockMovement.objects.select_related('item', 'user').order_by('-date')[:10]
@@ -852,7 +855,7 @@ def ajax_stock_movement(request):
 
         # Get or create today's snapshot
         today = timezone.localdate()
-        snapshot, _ = DailySnapshot.objects.get_or_create(date=today)
+        snapshot = create_snapshot(today)
 
         # Get or create snapshot record for this item
         snapshot_item, _ = DailyItemSnapshot.objects.get_or_create(
@@ -917,24 +920,29 @@ def test_msg(request):
     return render(request, "inventory/dashboard.html")
 
 
+# -------------------
+# 1️⃣ Request OTP
+# -------------------
 def send_otp(request):
     if request.method == "POST":
-        email = request.POST.get("email")
+        email = request.POST.get("email").strip()
+        if not email:
+            messages.error(request, "Please enter your email.")
+            return redirect("send_otp")
+
         user = User.objects.filter(email=email).first()
-
         if not user:
-            return render(request, "inventory/otp_request.html", {"error": "Email not found."})
+            messages.error(request, "Email not found.")
+            return redirect("send_otp")
 
-        PasswordResetOTP.objects.filter(user=user).update(expired=True)
+        # Expire old OTPs
+        PasswordResetOTP.objects.filter(user=user, expired=False).update(expired=True)
 
+        # Generate new OTP
         code = str(random.randint(100000, 999999))
-        PasswordResetOTP.objects.create(
-            user=user,
-            code=code,
-            created_at=timezone.now(),
-            expired=False
-        )
+        PasswordResetOTP.objects.create(user=user, code=code, expired=False)
 
+        # Send email
         try:
             send_mail(
                 "Password Reset OTP",
@@ -945,6 +953,8 @@ def send_otp(request):
             )
         except Exception as e:
             print("EMAIL ERROR:", e)
+            messages.error(request, "Failed to send OTP. Check server email settings.")
+            return redirect("send_otp")
 
         messages.success(request, "OTP sent to your email.")
         return redirect("verify_otp")
@@ -952,48 +962,64 @@ def send_otp(request):
     return render(request, "inventory/otp_request.html")
 
 
+# -------------------
+# 2️⃣ Verify OTP
+# -------------------
 def verify_otp(request):
     if request.method == "POST":
-        code = request.POST.get("code")
+        code = request.POST.get("code").strip()
+        if not code:
+            messages.error(request, "Please enter the OTP.")
+            return redirect("verify_otp")
+
         otp = PasswordResetOTP.objects.filter(code=code, expired=False).first()
+        if not otp or not otp.is_valid():
+            messages.error(request, "Invalid or expired OTP. Please request a new one.")
+            return redirect("send_otp")
 
-        if otp and otp.is_valid():  # make sure is_valid() checks 10-min expiration
-            # Expire this OTP after use
-            otp.expired = True
-            otp.save()
+        # Expire OTP after successful verification
+        otp.expired = True
+        otp.save()
 
-            request.session['reset_user_id'] = otp.user.id
-            return redirect("set_new_password")
-
-        return render(request, "inventory/otp_verify.html", {"error": "Invalid or expired code."})
+        # Store user id in session
+        request.session['reset_user_id'] = otp.user.id
+        messages.success(request, "OTP verified! You can now set a new password.")
+        return redirect("set_new_password")
 
     return render(request, "inventory/otp_verify.html")
 
 
-
+# -------------------
+# 3️⃣ Set New Password
+# -------------------
 def set_new_password(request):
-    if request.method == "POST":
-        password = request.POST.get("password")
-        confirm_password = request.POST.get("confirm_password")
-        user_id = request.session.get('reset_user_id')
+    user_id = request.session.get('reset_user_id')
+    if not user_id:
+        messages.error(request, "Session expired. Please request a new OTP.")
+        return redirect("send_otp")
 
-        if not user_id:
-            messages.error(request, "Session expired. Please request a new OTP.")
-            return redirect("send_otp")
+    if request.method == "POST":
+        password = request.POST.get("password").strip()
+        confirm_password = request.POST.get("confirm_password").strip()
 
         if not password or not confirm_password:
-            messages.error(request, "Please fill out both fields.")
+            messages.error(request, "Please fill out both password fields.")
             return redirect("set_new_password")
 
         if password != confirm_password:
             messages.error(request, "Passwords do not match.")
             return redirect("set_new_password")
 
-        user = User.objects.get(id=user_id)
-        user.set_password(password)
-        user.save()
+        # Update user password
+        try:
+            user = User.objects.get(id=user_id)
+            user.set_password(password)
+            user.save()
+        except User.DoesNotExist:
+            messages.error(request, "User not found. Please try again.")
+            return redirect("send_otp")
 
-        # Clear session after successful reset
+        # Clear session
         request.session.pop('reset_user_id', None)
         messages.success(request, "Password updated successfully! You can now log in.")
         return redirect("login")

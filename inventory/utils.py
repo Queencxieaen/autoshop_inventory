@@ -7,36 +7,32 @@ from inventory.models import Item, DailySnapshot, DailyItemSnapshot, StockMoveme
 def create_snapshot(snapshot_date=None):
     snapshot_date = snapshot_date or date.today()
 
-    # Create or get snapshot
-    snapshot, _ = DailySnapshot.objects.get_or_create(date=snapshot_date)
+    snapshot, created = DailySnapshot.objects.get_or_create(date=snapshot_date)
 
-    # ✅ Lock past days, allow today to update
-    today = date.today()
-
-    if snapshot.date != today:
-        if DailyItemSnapshot.objects.filter(snapshot=snapshot).exists():
-            return snapshot
-
-    # ✅ Only clear today's snapshot (so it updates live)
-    if snapshot.date == today:
-        DailyItemSnapshot.objects.filter(snapshot=snapshot).delete()
+    # ❌ DO NOT TOUCH if already exists (VERY IMPORTANT)
+    if not created:
+        return snapshot
 
     items = Item.objects.all()
 
-    # ✅ Correct date range (fix timezone issue)
     start = datetime.combine(snapshot_date, datetime.min.time())
     end = start + timedelta(days=1)
 
+    # Get previous snapshot
+    previous_snapshot = DailySnapshot.objects.filter(date__lt=snapshot_date).order_by('-date').first()
+
     for item in items:
-        # Get previous ending as beginning
-        try:
-            prev_snapshot = DailySnapshot.objects.filter(date__lt=snapshot_date).latest('date')
-            prev_item = DailyItemSnapshot.objects.get(snapshot=prev_snapshot, item=item)
-            beginning = prev_item.ending_quantity
-        except:
+        # ✅ Get previous ending
+        if previous_snapshot:
+            prev_item = DailyItemSnapshot.objects.filter(
+                snapshot=previous_snapshot,
+                item=item
+            ).first()
+            beginning = prev_item.ending_quantity if prev_item else 0
+        else:
             beginning = item.quantity or 0
 
-        # ✅ FIXED stock movement query
+        # Calculate movements
         stock_in = StockMovement.objects.filter(
             item=item,
             reason="add",

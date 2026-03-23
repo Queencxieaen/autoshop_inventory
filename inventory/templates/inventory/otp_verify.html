@@ -1,10 +1,11 @@
+{% extends 'inventory/auth_base.html' %}
 {% load static %}
 {% block title %}Verify OTP - Autosthetics{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-center align-items-center" style="min-height: 80vh;">
     <div class="card shadow-sm p-4" style="width: 400px;">
-        <h4 class="text-center mb-4">Verify OTP</h4>
+        <h4 class="text-center mb-4">Enter OTP</h4>
 
         {% if messages %}
             {% for message in messages %}
@@ -19,15 +20,71 @@
             <div class="alert alert-danger">{{ error }}</div>
         {% endif %}
 
-        <form method="POST">
+        <form method="POST" id="otp-verify-form">
             {% csrf_token %}
             <div class="mb-3">
-                <label for="code" class="form-label">Enter OTP</label>
-                <input type="text" name="code" id="code" class="form-control" required>
+                <label for="code" class="form-label">OTP Code</label>
+                <input type="text" name="code" id="code" class="form-control" maxlength="6" required>
             </div>
 
-            <button type="submit" class="btn btn-primary w-100">Verify</button>
+            <button type="submit" class="btn btn-primary w-100">Verify OTP</button>
         </form>
+
+        <div class="text-center mt-3">
+            <button class="btn btn-link" id="resend-otp-btn" disabled>Resend OTP</button>
+        </div>
     </div>
 </div>
+
+<script>
+const resendBtn = document.getElementById('resend-otp-btn');
+let countdown = 60;  // countdown time in seconds
+let interval;
+
+// Function to start or restart countdown
+function startCountdown() {
+    resendBtn.disabled = true;
+    resendBtn.textContent = `Resend OTP in ${countdown}s`;
+
+    interval = setInterval(() => {
+        countdown--;
+        resendBtn.textContent = `Resend OTP in ${countdown}s`;
+        if (countdown <= 0) {
+            clearInterval(interval);
+            resendBtn.disabled = false;
+            resendBtn.textContent = "Resend OTP";
+        }
+    }, 1000);
+}
+
+// Only start countdown if OTP was previously sent
+if ("{{ request.session.otp_sent|default_if_none:'False' }}" === "True") {
+    startCountdown();
+}
+
+// Handle resend OTP click
+resendBtn.addEventListener('click', () => {
+    fetch("{% url 'send_otp' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-CSRFToken": "{{ csrf_token }}"
+        },
+        body: `email={{ request.session.reset_email|default_if_none:'' }}`
+    })
+    .then(response => {
+        if (response.ok) {
+            countdown = 60;
+            startCountdown();
+            alert("OTP resent to your email!");
+        } else {
+            alert("Failed to resend OTP. Please try again.");
+        }
+    })
+    .catch(() => {
+        alert("Error connecting to server. Please try again.");
+    });
+});
+</script>
+
 {% endblock %}
