@@ -15,7 +15,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     # DASHBOARD
-    path('', lambda request: redirect('dashboard')),
+    path('', views.home, name='home'),
     path('dashboard/', views.dashboard, name='dashboard'),
 
 

@@ -67,6 +67,9 @@ def user_logout(request):
     messages.success(request, "You have been logged out.")
     return redirect('login')
 
+def home(request):
+    return redirect('dashboard')
+
 
 # ===========================
 # DASHBOARD
