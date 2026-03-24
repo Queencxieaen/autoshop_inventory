@@ -15,6 +15,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     # DASHBOARD
+    path('', lambda request: redirect('dashboard')),
     path('dashboard/', views.dashboard, name='dashboard'),
 
     # path('', include(tf_urls)),
