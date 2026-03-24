@@ -18,6 +18,7 @@ urlpatterns = [
     path('', lambda request: redirect('dashboard')),
     path('dashboard/', views.dashboard, name='dashboard'),
 
+
     # path('', include(tf_urls)),
 
     # CATEGORIES
