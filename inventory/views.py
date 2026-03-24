@@ -398,16 +398,11 @@ def reports_home(request):
 @login_required
 def daily_detail(request, year, month, day):
     from datetime import date
-    from inventory.utils import create_snapshot
-
     date_obj = date(year, month, day)
 
-    # Ensure snapshot exists (safe rebuild)
     snapshot = create_snapshot(date_obj)
 
-    items = DailyItemSnapshot.objects.filter(
-        snapshot=snapshot
-    ).select_related('item__category')
+    items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
 
     grouped = {}
     for i in items:
@@ -415,12 +410,14 @@ def daily_detail(request, year, month, day):
         grouped.setdefault(category, []).append(i)
 
     shop_settings = getattr(request.user, 'shopsettings', None)
+    shop_name = shop_settings.shop_name if shop_settings else "My Shop"
 
     return render(request, 'inventory/daily_detail.html', {
         'snapshot': snapshot,
         'grouped': grouped,
-        'shop_name': shop_settings.shop_name if shop_settings else "My Shop",
+        'shop_name': shop_name,
     })
+    
     
 @login_required
 def monthly_detail(request):
