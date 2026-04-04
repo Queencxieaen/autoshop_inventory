@@ -6,13 +6,13 @@
 {% block content %}
 <!-- Google Fonts & Bootstrap Icons (Bulletproof) -->
 <link href="https://fonts.googleapis.com" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://jsdelivr.net">
 
 <style>
     :root {
         --studio-amber: #f59e0b;
         --studio-dark: #0f172a;
-        --input-bg: #e9f0fe; /* Matches your screenshot's light blue/grey */
+        --input-bg: #e9f0fe; 
     }
 
     body, html { height: 100%; margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background-color: #ffffff; overflow: hidden; }
@@ -47,7 +47,7 @@
     }
     .custom-input:focus { background: #dee7f9; outline: none; box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1); }
 
-    /* PASSWORD WRAPPER - THE FIX */
+    /* PASSWORD WRAPPER */
     .password-wrapper { position: relative; width: 100%; }
     .eye-toggle-btn {
         position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
@@ -87,19 +87,23 @@
                 <p class="text-muted small fw-bold text-uppercase tracking-widest" style="font-size: 9px; opacity: 0.7;">Management Interface</p>
             </div>
 
-            <form method="POST">
+            <form method="POST" autocomplete="off">
                 {% csrf_token %}
                 
                 <div class="mb-4 stagger s-2">
                     <label class="form-label">Username</label>
-                    <input type="text" name="username" class="custom-input" placeholder="autosthetics_admin" required>
+                    <!-- Readonly trick added here -->
+                    <input type="text" name="username" class="custom-input" placeholder="autosthetics_admin" required 
+                           readonly onfocus="this.removeAttribute('readonly');" autocomplete="off">
                 </div>
 
                 <div class="mb-4 stagger s-2">
                     <label class="form-label">Password</label>
                     <div class="password-wrapper">
-                        <input type="password" name="password" id="password" class="custom-input" placeholder="••••••••••••" required style="padding-right: 50px;">
-                        <!-- Bootstrap Icon Fix -->
+                        <!-- Readonly and autocomplete="new-password" added here -->
+                        <input type="password" name="password" id="password" class="custom-input" placeholder="••••••••••••" required 
+                               style="padding-right: 50px;" readonly onfocus="this.removeAttribute('readonly');" 
+                               autocomplete="new-password">
                         <button type="button" class="eye-toggle-btn" onclick="togglePassword()">
                             <i id="eye-icon" class="bi bi-eye-fill"></i>
                         </button>
