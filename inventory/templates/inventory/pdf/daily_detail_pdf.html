@@ -3,81 +3,169 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            font-size: 12px;
+        @page {
+            margin: 0.5in;
+            @bottom-right {
+                content: "Page " counter(page) " of " counter(pages);
+                font-size: 9px;
+                color: #94a3b8;
+            }
         }
 
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            color: #1e293b;
+            line-height: 1.5;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* --- HEADER SECTION --- */
+        .report-header {
+            border-bottom: 2px solid #f1f5f9;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .shop-name {
+            font-size: 24px;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+        }
+
+        .report-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-top: 5px;
+        }
+
+        .report-meta {
+            margin-top: 15px;
+            font-size: 11px;
+            color: #475569;
+        }
+
+        /* --- TABLE STYLING --- */
+        .category-label {
+            background: #f8fafc;
+            padding: 8px 12px;
+            font-size: 11px;
+            font-weight: 800;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-left: 4px solid #f59e0b; /* Studio Amber Accent */
+            margin-bottom: 10px;
+            margin-top: 25px;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-
-        th, td {
-            border: 1px solid #ccc;
-            padding: 6px;
-            text-align: center;
+            margin-bottom: 10px;
         }
 
         th {
-            background-color: #f2f2f2;
+            font-size: 9px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #94a3b8;
+            text-align: left;
+            padding: 10px 8px;
+            border-bottom: 1px solid #e2e8f0;
         }
 
-        .low-stock {
-            color: red;
-            font-weight: bold;
+        td {
+            font-size: 11px;
+            padding: 10px 8px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #334155;
         }
 
-        h4 {
+        .text-center { text-align: center; }
+        .fw-bold { font-weight: 700; }
+
+        /* --- STATUS COLORS --- */
+        .status-low {
+            color: #e11d48;
+            font-weight: 800;
+        }
+
+        .movement-in { color: #16a34a; }
+        .movement-out { color: #ea580c; }
+
+        .footer-note {
+            margin-top: 40px;
+            font-size: 9px;
+            color: #94a3b8;
             text-align: center;
-            margin: 15px 0 8px 0;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 20px;
         }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <h2>{{ shop_name }}</h2>
-    <p>Daily Inventory Report</p>
-    <p style="font-size: 14px; font-weight: bold; margin: 0;">
-    {{ snapshot.date }}
-    </p>
+<div class="report-header">
+    <table style="border:none; width:100%; margin:0;">
+        <tr>
+            <td style="border:none; padding:0; vertical-align: top;">
+                <h1 class="shop-name">{{ shop_name }}</h1>
+                <div class="report-title">Daily Inventory Movement</div>
+            </td>
+            <td style="border:none; padding:0; text-align: right; vertical-align: top;">
+                <div class="report-meta">
+                    <strong>Report Date:</strong> {{ snapshot.date|date:"F d, Y" }}<br>
+                    <strong>Generated:</strong> {% now "g:i A" %}
+                </div>
+            </td>
+        </tr>
+    </table>
 </div>
 
 {% for category, items in grouped.items %}
-    <h4>{{ category }}</h4>
+    <div class="category-label">{{ category }}</div>
 
     <table>
         <thead>
             <tr>
-                <th>Item</th>
-                <th>Beginning</th>
-                <th>Stock In</th>
-                <th>Stock Out</th>
-                <th>Ending</th>
+                <th style="width: 40%;">Product Identity</th>
+                <th class="text-center">Beginning</th>
+                <th class="text-center">Stock In</th>
+                <th class="text-center">Stock Out</th>
+                <th class="text-center">Ending Stock</th> <!-- Fixed: Centered -->
             </tr>
         </thead>
         <tbody>
             {% for item in items %}
             <tr>
-                <td style="text-align:left;">{{ item.item.name }}</td>
-                <td>{{ item.beginning_quantity }}</td>
-                <td>{{ item.stock_in }}</td>
-                <td>{{ item.stock_out }}</td>
-                <td class="{% if item.ending_quantity <= 5 %}low-stock{% endif %}">
-                    {{ item.ending_quantity }}
+                <td class="fw-bold">{{ item.item.name }}</td>
+                <td class="text-center">{{ item.beginning_quantity }}</td>
+                <td class="text-center movement-in">
+                    {% if item.stock_in > 0 %}+{{ item.stock_in }}{% else %}-{% endif %}
+                </td>
+                <td class="text-center movement-out">
+                    {% if item.stock_out > 0 %}-{{ item.stock_out }}{% else %}-{% endif %}
+                </td>
+                <td class="text-center fw-bold {% if item.ending_quantity <= 5 %}status-low{% endif %}">
+                    {{ item.ending_quantity }} <!-- Fixed: Centered -->
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 {% endfor %}
+
+<div class="footer-note">
+    This is a system-generated document from Autosthetics Car Care Center Inventory. <br>
+    © {% now "Y" %} Autosthetics Studio. All rights reserved.
+</div>
 
 </body>
 </html>

@@ -1,129 +1,142 @@
 {% extends 'inventory/auth_base.html' %}
 {% load static %}
 
-{% block title %}Login - Autosthetics{% endblock %}
+{% block title %}Inventory | Autosthetics{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row vh-100">
+<!-- Google Fonts & Bootstrap Icons (Bulletproof) -->
+<link href="https://fonts.googleapis.com" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net">
 
-        <!-- LEFT IMAGE -->
-        <div class="col-md-6 d-none d-md-block fade-in-left"
-             style="background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('{% static 'images/login_bg.jpg' %}') center/cover no-repeat;">
-            
-            <div class="h-100 d-flex align-items-center justify-content-center text-white">
-                <div class="text-center">
-                    <!-- <h1 class="fw-bold">Autosthetics</h1>
-                    <p>Inventory System</p> -->
+<style>
+    :root {
+        --studio-amber: #f59e0b;
+        --studio-dark: #0f172a;
+        --input-bg: #e9f0fe; /* Matches your screenshot's light blue/grey */
+    }
+
+    body, html { height: 100%; margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background-color: #ffffff; overflow: hidden; }
+
+    .split-container { display: flex; height: 100vh; width: 100%; }
+
+    /* LEFT SIDE */
+    .visual-side {
+        flex: 1.2; position: relative;
+        background: url('{% static "images/login_bg.jpg" %}') center/cover no-repeat;
+        display: none; animation: imageReveal 1.2s cubic-bezier(0.7, 0, 0.3, 1) forwards;
+    }
+    @media (min-width: 992px) { .visual-side { display: block; } }
+
+    .visual-overlay {
+        position: absolute; inset: 0;
+        background: linear-gradient(to bottom, rgba(15, 23, 42, 0.1), rgba(15, 23, 42, 0.8));
+        padding: 60px; display: flex; flex-direction: column; justify-content: flex-end;
+    }
+
+    /* RIGHT SIDE */
+    .form-side { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; background: white; }
+    .login-box { width: 100%; max-width: 400px; }
+
+    .brand-title { font-weight: 800; font-size: 2.4rem; letter-spacing: -0.05em; color: var(--studio-dark); text-transform: uppercase; margin-bottom: 2px; }
+    .form-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; color: #94a3b8; margin-bottom: 12px; display: block; }
+
+    .custom-input {
+        background: var(--input-bg); border: none; border-radius: 12px;
+        padding: 16px 20px; width: 100%; font-size: 14px; font-weight: 600;
+        color: var(--studio-dark); transition: all 0.3s ease;
+    }
+    .custom-input:focus { background: #dee7f9; outline: none; box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1); }
+
+    /* PASSWORD WRAPPER - THE FIX */
+    .password-wrapper { position: relative; width: 100%; }
+    .eye-toggle-btn {
+        position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
+        background: none; border: none; color: var(--studio-dark);
+        font-size: 1.2rem; cursor: pointer; z-index: 10; padding: 5px;
+        display: flex; align-items: center; justify-content: center;
+    }
+
+    .btn-studio {
+        background: var(--studio-dark); color: white; border: none; border-radius: 50px;
+        padding: 18px; width: 100%; font-weight: 800; font-size: 15px;
+        cursor: pointer; transition: all 0.3s;
+    }
+    .btn-studio:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(15, 23, 42, 0.2); opacity: 0.9; }
+
+    /* ANIMATIONS */
+    @keyframes imageReveal { from { transform: scale(1.1); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .stagger { opacity: 0; animation: revealUp 0.8s cubic-bezier(0.2, 1, 0.3, 1) forwards; }
+    .s-1 { animation-delay: 0.3s; }
+    .s-2 { animation-delay: 0.4s; }
+    .s-3 { animation-delay: 0.5s; }
+    @keyframes revealUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+
+<div class="split-container">
+    <div class="visual-side">
+        <div class="visual-overlay">
+            <h1 class="text-white fw-black m-0 stagger s-1" style="font-size: 3.5rem; line-height: 1; letter-spacing: -0.05em;">Studio <br>Performance.</h1>
+            <p class="text-white opacity-50 mt-4 lead stagger s-2">Precision-driven inventory management for Autosthetics.</p>
+        </div>
+    </div>
+
+    <div class="form-side">
+        <div class="login-box">
+            <div class="mb-5 stagger s-1">
+                <h2 class="brand-title">Autosthetics.</h2>
+                <p class="text-muted small fw-bold text-uppercase tracking-widest" style="font-size: 9px; opacity: 0.7;">Management Interface</p>
+            </div>
+
+            <form method="POST">
+                {% csrf_token %}
+                
+                <div class="mb-4 stagger s-2">
+                    <label class="form-label">Username</label>
+                    <input type="text" name="username" class="custom-input" placeholder="autosthetics_admin" required>
                 </div>
-            </div>
+
+                <div class="mb-4 stagger s-2">
+                    <label class="form-label">Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" name="password" id="password" class="custom-input" placeholder="••••••••••••" required style="padding-right: 50px;">
+                        <!-- Bootstrap Icon Fix -->
+                        <button type="button" class="eye-toggle-btn" onclick="togglePassword()">
+                            <i id="eye-icon" class="bi bi-eye-fill"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-5 stagger s-3">
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #cbd5e1; cursor: pointer;">
+                        <input type="checkbox" name="remember" style="width: 16px; height: 16px; accent-color: var(--studio-dark);"> Remember
+                    </label>
+                    <a href="{% url 'send_otp' %}" style="color: #000; font-size: 14px; font-weight: 800; text-decoration: none;">Forgot Password?</a>
+                </div>
+
+                <button type="submit" class="btn-studio stagger s-3">
+                    Initialize Session
+                </button>
+            </form>
+
+            <p class="text-center text-muted stagger s-3" style="font-size: 10px; margin-top: 5rem; font-weight: 600;">
+                &copy; 2026 AUTOSTHETICS CAR CARE CENTER
+            </p>
         </div>
-
-        <!-- RIGHT FORM -->
-        <div class="col-md-6 d-flex align-items-center justify-content-center bg-light fade-in-right">
-
-            <div style="width:100%; max-width:400px;">
-
-                <h4 class="fw-bold text-center mb-2">AUTOSTHETICS CAR CARE CENTER</h4>
-                <p class="text-center text-muted small mb-4">Login to your account</p>
-
-                {% if messages %}
-                    {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }} small">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                {% endif %}
-
-                <form method="POST">
-                    {% csrf_token %}
-
-                    <!-- Username -->
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Username</label>
-                        <input type="text" name="username" class="form-control form-control-lg" required>
-                    </div>
-
-                    <!-- Password -->
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Password</label>
-                        <div class="input-group">
-                            <input type="password" name="password" id="password" class="form-control form-control-lg" required>
-                            <span class="input-group-text bg-white" onclick="togglePassword()" style="cursor:pointer;">
-                                <i class="bi bi-eye" id="eye-icon"></i>
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Remember Me -->
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" name="remember" class="form-check-input" id="remember">
-                        <label class="form-check-label small" for="remember">Remember Me</label>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary w-100 fw-semibold">Login</button>
-
-                    <div class="text-center mt-3">
-                        <a href="{% url 'send_otp' %}" class="small text-decoration-none">
-                            Forgot Password?
-                        </a>
-                    </div>
-                </form>
-
-            </div>
-        </div>
-
     </div>
 </div>
 
-<!-- Fade-in Animation Styles -->
-<style>
-.fade-in-left {
-    animation: fadeInLeft 1s ease forwards;
-    opacity: 0;
-}
-
-.fade-in-right {
-    animation: fadeInRight 1s ease forwards;
-    opacity: 0;
-}
-
-@keyframes fadeInLeft {
-    0% {
-        opacity: 0;
-        transform: translateX(-30px);
-    }
-    100% {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-@keyframes fadeInRight {
-    0% {
-        opacity: 0;
-        transform: translateX(30px);
-    }
-    100% {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-</style>
-
-<!-- Toggle Password Script -->
 <script>
-function togglePassword() {
-    const password = document.getElementById('password');
-    const icon = document.getElementById('eye-icon');
-
-    if (password.type === "password") {
-        password.type = "text";
-        icon.classList.replace("bi-eye", "bi-eye-slash");
-    } else {
-        password.type = "password";
-        icon.classList.replace("bi-eye-slash", "bi-eye");
+    function togglePassword() {
+        const passwordField = document.getElementById('password');
+        const eyeIcon = document.getElementById('eye-icon');
+        
+        if (passwordField.type === "password") {
+            passwordField.type = "text";
+            eyeIcon.classList.replace("bi-eye-fill", "bi-eye-slash-fill");
+        } else {
+            passwordField.type = "password";
+            eyeIcon.classList.replace("bi-eye-slash-fill", "bi-eye-fill");
+        }
     }
-}
 </script>
 {% endblock %}

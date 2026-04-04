@@ -1,10 +1,13 @@
 import csv
 import logging
 from datetime import datetime, date, timedelta
+import datetime as dt_module
 from dateutil.relativedelta import relativedelta
 from collections import defaultdict
 import re
 from django.template.loader import render_to_string
+ 
+from django.utils.timezone import now, make_aware
 
 from django.conf import settings
 from .models import PasswordResetOTP
@@ -12,10 +15,11 @@ from django.contrib.auth.models import User
 import random
 
 from django.utils import timezone
+import calendar
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, F, Count
 from django.db.models.functions import ExtractYear, ExtractMonth
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -27,8 +31,11 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib import colors, pagesizes
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
+from weasyprint import HTML
+from django.db import transaction
 
 from .models import Item, Category, StockMovement, ShopSettings, DailySnapshot, DailyItemSnapshot
+from inventory.utils import ensure_daily_snapshots
 from .forms import ItemForm, CategoryForm, ShopSettingsForm, AdjustStockForm
 
 from django.db.models import Count
@@ -76,23 +83,41 @@ def home(request):
 # ===========================
 @login_required
 def dashboard(request):
-    today = timezone.localdate()
+    # 1. BASIC METRICS (Using Count)
+    total_items = Item.objects.count()
+    
+    # 2. LOW STOCK (Filter by threshold - adjust '5' to your needs)
+    low_stock_threshold = 5
+    low_stock_items = Item.objects.filter(quantity__lte=low_stock_threshold)
+    low_stock_count = low_stock_items.count()
+    
+    well_stock = total_items - low_stock_count
 
-    create_snapshot(today)
+    # 3. TOTAL VALUE (Database-level math is 10x faster than sum() loop)
+    total_value_data = Item.objects.aggregate(
+        total=Sum(F('price') * F('quantity'))
+    )
+    total_value = total_value_data['total'] or 0
 
-    total_items = Item.objects.aggregate(total=Sum('quantity'))['total'] or 0
-    low_stock = Item.objects.filter(quantity__lte=5).count()
-    well_stock = Item.objects.filter(quantity__gt=10).count()
-    total_value = sum(item.price * item.quantity for item in Item.objects.all())
+    # 4. PERCENTAGE FOR PROGRESS BAR
+    if total_items > 0:
+        low_stock_percent = (low_stock_count / total_items) * 100
+    else:
+        low_stock_percent = 0
 
-    stock_distribution = Category.objects.annotate(count=Count('item'))
+    # 5. STOCK DISTRIBUTION (Count items per category)
+    # This generates the list for your "Items per category" card
+    stock_distribution = Category.objects.annotate(
+        count=Count('item')
+    ).order_by('-count')
 
-    return render(request, 'inventory/dashboard.html', {
-        'total_items': total_items,
-        'low_stock': low_stock,
-        'well_stock': well_stock,
-        'total_value': total_value,
-        'stock_distribution': stock_distribution,
+    return render(request, "inventory/dashboard.html", {
+        "total_items": total_items,
+        "low_stock": low_stock_count,
+        "well_stock": well_stock,
+        "total_value": f"{total_value:,.2f}", # Formatted with commas and 2 decimals
+        "low_stock_percent": round(low_stock_percent, 1),
+        "stock_distribution": stock_distribution,
     })
 
 # ===========================
@@ -108,41 +133,54 @@ def edit_profile(request):
 # ===========================
 @login_required
 def settings_page(request):
+    # Ensure settings exist for this user
     settings_instance, _ = ShopSettings.objects.get_or_create(user=request.user)
 
     if request.method == "POST":
         form = ShopSettingsForm(request.POST, request.FILES, instance=settings_instance)
-
-        # Update user fields
+        
+        # 1. Capture User Data
         username = request.POST.get("username")
         email = request.POST.get("email")
+        
+        # 2. Capture Password Data
         current_password = request.POST.get("current_password")
         new_password = request.POST.get("new_password")
         confirm_password = request.POST.get("confirm_password")
 
-        if new_password:
-            if not request.user.check_password(current_password):
-                messages.error(request, "Current password is incorrect.")
-            elif new_password != confirm_password:
-                messages.error(request, "New passwords do not match.")
-            else:
-                request.user.set_password(new_password)
-                request.user.save()
-                messages.success(request, "Password updated successfully!")
-
+        # --- PART A: PROFILE UPDATE (Always processed) ---
         if username:
             request.user.username = username
         if email:
             request.user.email = email
         request.user.save()
 
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Settings updated successfully!")
-            return redirect('settings_page')
-        else:
-            messages.error(request, "Please correct the errors below.")
-    
+        # --- PART B: SECURITY UPDATE (Only if new_password is typed) ---
+        password_error = False
+        if new_password:
+            if not current_password:
+                messages.error(request, "Current password is required to authorize a change.")
+                password_error = True
+            elif not request.user.check_password(current_password):
+                messages.error(request, "The current password you entered is incorrect.")
+                password_error = True
+            elif new_password != confirm_password:
+                messages.error(request, "The new passwords do not match.")
+                password_error = True
+            else:
+                request.user.set_password(new_password)
+                request.user.save()
+                messages.success(request, "Security credentials updated successfully!")
+
+        # --- PART C: SHOP UPDATE (Only if no password errors) ---
+        if not password_error:
+            if form.is_valid():
+                form.save()
+                messages.success(request, "General settings synchronized successfully.")
+                return redirect('settings_page')
+            else:
+                messages.error(request, "Please review the shop information fields.")
+
     else:
         form = ShopSettingsForm(instance=settings_instance)
 
@@ -153,7 +191,6 @@ def settings_page(request):
         "profile_image": settings_instance.profile_image
     })
 
-
 # ===========================
 # ITEMS
 # ===========================
@@ -161,16 +198,30 @@ def settings_page(request):
 def all_items(request):
     query = request.GET.get("q", "")
     items = Item.objects.all()
+    
     if query:
-        items = items.filter(name__icontains=query)
+        # This will look for the query in the Item Name OR the Category Name
+        items = items.filter(
+            Q(name__icontains=query) | 
+            Q(category__name__icontains=query)
+        )
+
+    # Calculate summary data based on the filtered list
+    total_items_count = items.count()
+    low_stock_count = items.filter(quantity__lte=5).count()
+    
+    # Using aggregate for total value is much faster than a sum loop
+    total_value_data = items.aggregate(total=Sum(F('price') * F('quantity')))
+    total_value = total_value_data['total'] or 0
 
     return render(request, "inventory/all_items.html", {
         "items": items,
-        "total_items": items.count(),
-        "low_stock": items.filter(quantity__lte=5).count(),
-        "total_value": sum(item.price * item.quantity for item in items),
+        "total_items": total_items_count,
+        "low_stock": low_stock_count,
+        "total_value": f"{total_value:,.2f}",
         "query": query,
     })
+
 
 
 @login_required
@@ -220,14 +271,16 @@ def delete_item(request, pk):
 @login_required
 def categories(request):
     query = request.GET.get('q', '')
-    categories = Category.objects.all()
+    
+    # ✅ Sort by name (A-Z)
+    categories = Category.objects.all().order_by('name')
 
     if query:
         categories = categories.filter(name__icontains=query)
 
     return render(request, 'inventory/categories.html', {
         'categories': categories,
-        'total_categories': Category.objects.count(),
+        'total_categories': categories.count(),
         'query': query,
     })
 
@@ -289,94 +342,53 @@ def low_stock_page(request):
     })
 
 
+
 @login_required
-def adjust_stock(request, pk=None):
-    """
-    Adjust stock quantities for items and update daily snapshots.
-    Prevents stock out below 0 or current item quantity.
-    """
-    today = timezone.localdate()
-    today_snapshot = create_snapshot(today)
-
+def adjust_stock(request, pk=None):  # <--- MUST HAVE pk=None
+    # 1. FETCH ITEM FROM URL PK
+    selected_item = get_object_or_404(Item, pk=pk) if pk else None
+    
+    today = timezone.localtime(timezone.now()).date()
     items = Item.objects.all().order_by('name')
-    recent_movements = StockMovement.objects.select_related('item', 'user').order_by('-date')[:10]
-    today_snapshot_items = DailyItemSnapshot.objects.filter(snapshot=today_snapshot)
 
-    if request.method == 'POST':
+    if request.method == "POST":
         item_id = request.POST.get('item')
+        # Use URL pk if it exists, otherwise fall back to form selection
+        target_item = selected_item if selected_item else get_object_or_404(Item, id=item_id)
+        
+        quantity = int(request.POST.get('quantity', 0))
         reason = request.POST.get('reason')
-        quantity_str = request.POST.get('quantity', '0')
 
-        # Convert quantity safely
-        try:
-            quantity = int(quantity_str)
-        except (TypeError, ValueError):
-            quantity = 0
+        if reason == 'remove' and quantity > target_item.quantity:
+            messages.error(request, f"Insufficient stock for {target_item.name}.")
+            return redirect(request.path)
 
-        if item_id and reason in ['add', 'remove'] and quantity > 0:
-            item = get_object_or_404(Item, pk=item_id)
-
-            # Prevent stock out below 0
-            if reason == 'remove' and quantity > item.quantity:
-                messages.error(
-                    request,
-                    f"Cannot remove {quantity} units. '{item.name}' only has {item.quantity} in stock."
-                )
-                return redirect('adjust_stock')
-
-            # Update item quantity
-            if reason == 'add':
-                item.quantity += quantity
-            else:  # remove
-                item.quantity -= quantity
-
-            item.save()
-
-            # Update or create daily snapshot
-            snapshot_item, created = DailyItemSnapshot.objects.get_or_create(
-                snapshot=today_snapshot,
-                item=item,
-                defaults={
-                    "beginning_quantity": item.quantity - quantity if reason == 'add' else item.quantity + quantity,
-                    "stock_in": 0,
-                    "stock_out": 0,
-                    "ending_quantity": item.quantity,
-                }
-            )
-
-            if reason == 'add':
-                snapshot_item.stock_in += quantity
-            else:
-                snapshot_item.stock_out += quantity
-
-            snapshot_item.ending_quantity = snapshot_item.beginning_quantity + snapshot_item.stock_in - snapshot_item.stock_out
-            snapshot_item.save()
-
-            # Record stock movement
-            StockMovement.objects.create(
-                item=item,
+        with transaction.atomic():
+            movement = StockMovement(
+                item=target_item,
                 quantity=quantity,
                 reason=reason,
-                user=request.user
+                user=request.user,
+                remarks=request.POST.get('remarks', '')
             )
+            movement.save()
 
-            messages.success(request, f"Stock for '{item.name}' updated successfully.")
-            return redirect('adjust_stock')
-        else:
-            messages.error(request, "Invalid input. Please check your item, reason, and quantity.")
+        messages.success(request, f"Sync complete for {target_item.name}.")
+        return redirect('adjust_stock')
 
-    # Shop name for header (fallback if user has no shop settings)
-    shop_settings = getattr(request.user, 'shopsettings', None)
-    shop_name = shop_settings.shop_name if shop_settings else 'My Shop'
+    # 2. DATA FOR TABLES
+    today_ledger = DailyItemSnapshot.objects.filter(snapshot__date=today).select_related('item')
+    recent_logs = StockMovement.objects.filter(date__date=today).order_by('-date')[:10]
 
-    context = {
+    return render(request, "inventory/adjust_stock.html", {
         "items": items,
-        "selected_item": None,
-        "movements": recent_movements,
-        "today_snapshot": today_snapshot_items,
-        "shop_name": shop_name,
-    }
-    return render(request, "inventory/adjust_stock.html", context)
+        "selected_item": selected_item, # Passed to template
+        "today": today,
+        "today_ledger": today_ledger,
+        "recent_logs": recent_logs,
+    })
+
+
 # ===========================
 # REPORTS
 # ===========================
@@ -405,7 +417,9 @@ def daily_detail(request, year, month, day):
 
     snapshot = create_snapshot(date_obj)
 
-    items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
+    items = DailyItemSnapshot.objects.filter(snapshot=snapshot)\
+        .select_related('item__category')\
+        .order_by('item__name')   # ✅ SORT HERE
 
     grouped = {}
     for i in items:
@@ -415,38 +429,87 @@ def daily_detail(request, year, month, day):
     shop_settings = getattr(request.user, 'shopsettings', None)
     shop_name = shop_settings.shop_name if shop_settings else "My Shop"
 
+    grouped = dict(sorted(grouped.items()))
+
     return render(request, 'inventory/daily_detail.html', {
         'snapshot': snapshot,
         'grouped': grouped,
         'shop_name': shop_name,
     })
     
-    
+
+
 @login_required
 def monthly_detail(request):
-    snapshots = DailySnapshot.objects.all().order_by('date')
-    year = request.GET.get('year')
-    month = request.GET.get('month')
+    year_param = request.GET.get('year')
+    month_param = request.GET.get('month')
 
-    if year and month:
-        year = int(year)
-        month = int(month)
-        # Filter snapshots by selected month/year
-        snapshots = snapshots.filter(date__year=year, date__month=month)
+    # Default to current month/year
+    current_now = now()
+    if not year_param or not month_param:
+        year, month = current_now.year, current_now.month
+    else:
+        try:
+            year, month = int(year_param), int(month_param)
+        except (ValueError, TypeError):
+            year, month = current_now.year, current_now.month
 
-        # Ensure each snapshot includes all items
-        for snapshot in snapshots:
-            create_snapshot(snapshot.date)
+    today = date.today()
 
-    context = {
+    # 1. DATA FETCHING (Capped at Today)
+    snapshots = DailySnapshot.objects.filter(
+        date__year=year,
+        date__month=month,
+        date__lte=today
+    ).order_by('-date')
+
+    records = DailyItemSnapshot.objects.filter(
+        snapshot__date__year=year,
+        snapshot__date__month=month,
+        snapshot__date__lte=today
+    ).select_related("item", "item__category").order_by("item__category__name", "item__name")
+
+    # 2. SUMMARY BUILDING
+    summary = {}
+    for record in records:
+        cat_name = record.item.category.name if record.item.category else "Uncategorized"
+        item_name = record.item.name
+
+        if cat_name not in summary:
+            summary[cat_name] = {}
+
+        if item_name not in summary[cat_name]:
+            summary[cat_name][item_name] = {
+                "beginning": record.beginning_quantity,
+                "stock_in": 0,
+                "stock_out": 0,
+                "ending": 0,
+            }
+
+        summary[cat_name][item_name]["stock_in"] += record.stock_in
+        summary[cat_name][item_name]["stock_out"] += record.stock_out
+
+    # 3. TOTALS
+    for cat, items in summary.items():
+        cat_total = {"beginning": 0, "stock_in": 0, "stock_out": 0, "ending": 0}
+        for item_key, data in items.items():
+            if item_key == "totals": continue
+            data["ending"] = data["beginning"] + data["stock_in"] - data["stock_out"]
+            cat_total["beginning"] += data["beginning"]
+            cat_total["stock_in"] += data["stock_in"]
+            cat_total["stock_out"] += data["stock_out"]
+            cat_total["ending"] += data["ending"]
+        items["totals"] = cat_total
+
+    return render(request, 'inventory/monthly_detail.html', {
         'snapshots': snapshots,
+        'summary': dict(sorted(summary.items())),
         'year': year,
         'month': month,
-    }
-    return render(request, 'inventory/monthly_detail.html', context)
+        'categories': sorted(list(summary.keys())),
+    })
 
 
-    
 @login_required
 def delete_daily_report(request, date_str):
     if request.method != "POST":
@@ -483,7 +546,6 @@ def delete_selected_reports(request, year, month):
 
 @login_required
 def export_selected_days_pdf(request, year, month):
-    from weasyprint import HTML
 
     selected_dates = request.POST.get('selected_dates')
     date_obj = parse_date(selected_dates)
@@ -493,18 +555,38 @@ def export_selected_days_pdf(request, year, month):
     if not snapshot:
         return HttpResponse("No data found.")
 
-    items = DailyItemSnapshot.objects.filter(snapshot=snapshot).select_related('item__category')
+    # ✅ Get selected categories
+    selected_categories = request.POST.getlist("categories")
+
+    # ✅ Get items (sorted)
+    items = DailyItemSnapshot.objects.filter(snapshot=snapshot)\
+        .select_related('item__category')\
+        .order_by('item__name')
+
+    # ✅ FIX: Handle empty selection BEFORE loop
+    if not selected_categories:
+        selected_categories = list(set(
+            i.item.category.name if i.item.category else "Uncategorized"
+            for i in items
+        ))
 
     grouped = {}
+
     for item in items:
         category_name = item.item.category.name if item.item.category else "Uncategorized"
+
+        # ✅ FILTER HERE
+        if category_name not in selected_categories:
+            continue
+
         grouped.setdefault(category_name, []).append(item)
 
+    # ✅ AFTER loop
     shop = ShopSettings.objects.first()
     shop_name = shop.shop_name if shop else "Inventory System"
 
     html_string = render_to_string(
-        "inventory/pdf/daily_detail_pdf.html",   # ✅ FIXED
+        "inventory/pdf/daily_detail_pdf.html",
         {
             "snapshot": snapshot,
             "grouped": grouped,
@@ -568,20 +650,31 @@ def monthly_summary(request, year, month):
     })
 
 
+
 @login_required
 def monthly_summary_pdf(request, year, month):
-    from weasyprint import HTML
-    
+
+    # ✅ Get selected categories from POST
+    selected_categories = request.POST.getlist("categories")
+
+    # ✅ Fetch records for the month (sorted already)
     records = DailyItemSnapshot.objects.filter(
         snapshot__date__year=year,
         snapshot__date__month=month
-    ).select_related("item__category")
+    ).select_related("item__category").order_by(
+        "item__category__name", "item__name"
+    )
 
     summary = {}
 
-    # Build summary dict
+    # ✅ Build summary dictionary
     for record in records:
         category = record.item.category.name if record.item.category else "Uncategorized"
+
+        # ✅ Apply category filter (IMPORTANT)
+        if selected_categories and category not in selected_categories:
+            continue
+
         item_name = record.item.name
 
         if category not in summary:
@@ -595,44 +688,72 @@ def monthly_summary_pdf(request, year, month):
                 "ending": 0,
             }
 
-        # Update stock in/out and ending
         summary[category][item_name]["stock_in"] += record.stock_in
         summary[category][item_name]["stock_out"] += record.stock_out
-        summary[category][item_name]["ending"] = (
-            summary[category][item_name]["beginning"]
-            + summary[category][item_name]["stock_in"]
-            - summary[category][item_name]["stock_out"]
-        )
 
-    # Compute totals per category (Django-safe key)
-    for cat, items in summary.items():
+    # ✅ Compute ending values AFTER aggregation
+    for category, items in summary.items():
+        for item_name, data in items.items():
+            data["ending"] = (
+                data["beginning"]
+                + data["stock_in"]
+                - data["stock_out"]
+            )
+
+    # ✅ Compute totals per category
+    for category, items in summary.items():
         total = {"beginning": 0, "stock_in": 0, "stock_out": 0, "ending": 0}
-        for item, data in items.items():
+
+        for item_name, data in items.items():
             total["beginning"] += data["beginning"]
             total["stock_in"] += data["stock_in"]
             total["stock_out"] += data["stock_out"]
             total["ending"] += data["ending"]
-        items["totals"] = total  # ✅ key does NOT start with underscore
 
+        items["totals"] = total
+
+    # ✅ SORTING (VERY IMPORTANT 🔥)
+
+    # Sort categories
+    sorted_summary = dict(sorted(summary.items()))
+
+    # Sort items inside each category
+    for category in sorted_summary:
+        items = sorted_summary[category]
+
+        sorted_items = dict(sorted(
+            (k, v) for k, v in items.items() if k != "totals"
+        ))
+
+        # Keep totals at bottom
+        if "totals" in items:
+            sorted_items["totals"] = items["totals"]
+
+        sorted_summary[category] = sorted_items
+
+    # ✅ Shop Info
     shop = ShopSettings.objects.first()
     shop_name = shop.shop_name if shop else "Inventory System"
     month_name = datetime(int(year), int(month), 1).strftime("%B")
 
+    # ✅ Render HTML
     html_string = render_to_string(
         "inventory/pdf/monthly_summary_pdf.html",
         {
             "shop_name": shop_name,
             "month_name": month_name,
             "year": year,
-            "summary": summary,
+            "summary": sorted_summary,
         }
     )
 
+    # ✅ Generate PDF
     pdf_file = HTML(
         string=html_string,
         base_url=request.build_absolute_uri()
     ).write_pdf()
 
+    # ✅ Response
     response = HttpResponse(pdf_file, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="Monthly_{month_name}_{year}.pdf"'
 
@@ -704,96 +825,99 @@ def weekly_summary(request):
 
 @login_required
 def weekly_summary_pdf(request):
-    from weasyprint import HTML
+    # 1. Capture the parameters from the URL (GET)
+    week_num = int(request.GET.get('week', 0))
+    year = int(request.GET.get('year', now().year))
+    month = int(request.GET.get('month', now().month))
 
-    selected_weeks = request.POST.getlist("selected_weeks")
+    if not week_num:
+        return HttpResponse("Error: No week selected.", status=400)
 
-    if not selected_weeks:
-        return HttpResponse("No weeks selected.")
+    # 2. Calculate the Date Range based on the week number
+    # Week 1: 1-7, Week 2: 8-14, Week 3: 15-21, Week 4: 22-28, Week 5: 29-End
+    start_day = (week_num - 1) * 7 + 1
+    
+    # Get the total days in the month to handle Week 5 correctly
+    _, last_day_of_month = calendar.monthrange(year, month)
+    
+    if week_num < 5:
+        end_day = start_day + 6
+    else:
+        end_day = last_day_of_month
 
-    weeks_data = []
+    # Create actual date objects
+    try:
+        start_date = date(year, month, start_day)
+        end_date = date(year, month, end_day)
+    except ValueError:
+        return HttpResponse("Error: Invalid date range for this month.", status=400)
 
-    for week_range in selected_weeks:
-        start_str, end_str = week_range.split("|")
-        start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
-        end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+    # 3. Fetch snapshots for the specific date range
+    snapshots = DailySnapshot.objects.filter(date__range=[start_date, end_date])
+    
+    # Fetch all item records for those snapshots
+    records = DailyItemSnapshot.objects.filter(
+        snapshot__in=snapshots
+    ).select_related("item", "item__category").order_by('item__category__name', 'item__name')
 
-        snapshots = DailySnapshot.objects.filter(
-            date__range=[start_date, end_date]
-        )
+    # 4. Group data for the PDF (Aggregate 7 days into 1 row per item)
+    categories = {}
+    for record in records:
+        cat_name = record.item.category.name if record.item.category else "General"
+        item_name = record.item.name
 
-        items = DailyItemSnapshot.objects.filter(
-            snapshot__in=snapshots
-        ).select_related("item__category")
+        if cat_name not in categories:
+            categories[cat_name] = {}
 
-        categories = {}
+        if item_name not in categories[cat_name]:
+            # 'beginning' comes from the first record found in the week
+            categories[cat_name][item_name] = {
+                "beginning": record.beginning_quantity, 
+                "in": 0,
+                "out": 0,
+                "ending": record.ending_quantity 
+            }
 
-        for record in items:
-            category_name = record.item.category.name if record.item.category else "Uncategorized"
-            item_name = record.item.name
+        # Accumulate movement across the week
+        categories[cat_name][item_name]["in"] += record.stock_in
+        categories[cat_name][item_name]["out"] += record.stock_out
+        # 'ending' is updated continuously so the last record in the loop is the final stock
+        categories[cat_name][item_name]["ending"] = record.ending_quantity
 
-            if category_name not in categories:
-                categories[category_name] = {}
+    # Prepare data structure for the template
+    weeks_data = [{
+        "label": f"Week {week_num:02d} ({start_date.strftime('%b %d')} - {end_date.strftime('%b %d, %Y')})",
+        "categories": categories
+    }]
 
-            if item_name not in categories[category_name]:
-                categories[category_name][item_name] = {
-                    "beginning": 0,
-                    "in": 0,
-                    "out": 0,
-                    "ending": 0,
-                }
-
-            categories[category_name][item_name]["beginning"] += record.beginning_quantity
-            categories[category_name][item_name]["in"] += record.stock_in
-            categories[category_name][item_name]["out"] += record.stock_out
-            categories[category_name][item_name]["ending"] += record.ending_quantity
-
-        weeks_data.append({
-            "label": f"{start_date.strftime('%b %d, %Y')} - {end_date.strftime('%b %d, %Y')}",
-            "categories": categories
-        })
-
+    # 5. PDF Generation Setup
     shop = ShopSettings.objects.first()
-    shop_name = shop.shop_name if shop else "Inventory System"
-    logo_url = shop.profile_image.url if shop and shop.profile_image else None
-
-    # ✅ Fix: added comma between "shop_name" and "logo_url"
+    shop_name = shop.shop_name if shop else "Autosthetics Studio"
+    
+    # IMPORTANT: Ensure this template file does NOT use {% extends %}
     html_string = render_to_string(
-        "inventory/pdf/weekly_summary_pdf.html",
+        "inventory/pdf/weekly_summary_pdf.html", 
         {
             "weeks": weeks_data,
             "shop_name": shop_name,
-            "logo_url": logo_url
+            "year": year,
+            "month_name": calendar.month_name[month]
         }
     )
 
-    pdf_file = HTML(
-        string=html_string,
-        base_url=request.build_absolute_uri()
-    ).write_pdf()
-
-    # Build filename label
-    filename_parts = []
-
-    for week_range in selected_weeks:
-        start_str, end_str = week_range.split("|")
-        start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
-        end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
-
-        label = f"{start_date.strftime('%B %d')}-{end_date.strftime('%d %Y')}"
-        filename_parts.append(label)
-
-    filename_label = " & ".join(filename_parts)
-    safe_filename = f"Weekly_report_{filename_label}.pdf"
-
+    # Convert HTML to PDF using WeasyPrint
+    pdf_file = HTML(string=html_string).write_pdf()
+    
+    # Create Response
+    filename = f"Weekly_Summary_W{week_num}_{calendar.month_name[month]}_{year}.pdf"
     response = HttpResponse(pdf_file, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="{safe_filename}"'
-
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
     return response
     
 @login_required
 def custom_summary(request):
-
+    from .utils import create_snapshot  # ensure it's imported
     summary = []
     start_date = None
     end_date = None
@@ -804,18 +928,28 @@ def custom_summary(request):
 
         if start_date and end_date:
 
+            # ✅ Ensure snapshots exist for each date in range
+            current_date = start_date
+            while current_date <= end_date:
+                create_snapshot(current_date)
+                current_date += timedelta(days=1)
+
+            # ✅ Fetch all DailyItemSnapshots in range
             records = DailyItemSnapshot.objects.filter(
                 snapshot__date__range=[start_date, end_date]
-            ).select_related("item").order_by("snapshot__date")
+            ).select_related("item", "item__category").order_by("snapshot__date", "item__name")
 
             temp = {}
 
             for record in records:
                 item_id = record.item.id
+                item_name = record.item.name
+                category_name = record.item.category.name if record.item.category else "Uncategorized"
 
                 if item_id not in temp:
                     temp[item_id] = {
-                        "item_name": record.item.name,
+                        "item_name": item_name,
+                        "category": category_name,
                         "beginning": record.beginning_quantity,
                         "stock_in": 0,
                         "stock_out": 0,
@@ -824,7 +958,12 @@ def custom_summary(request):
 
                 temp[item_id]["stock_in"] += record.stock_in
                 temp[item_id]["stock_out"] += record.stock_out
-                temp[item_id]["ending"] = record.ending_quantity
+                # Sum over range; ending will be computed later
+                temp[item_id]["ending"] += record.stock_in - record.stock_out
+
+            # ✅ Compute ending properly
+            for item_data in temp.values():
+                item_data["ending"] = item_data["beginning"] + item_data["stock_in"] - item_data["stock_out"]
 
             summary = temp.values()
 
@@ -833,6 +972,7 @@ def custom_summary(request):
         "start_date": start_date,
         "end_date": end_date,
     })
+    
 # ===========================
 # AJAX
 # ===========================

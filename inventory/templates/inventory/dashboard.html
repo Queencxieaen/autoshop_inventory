@@ -1,121 +1,191 @@
 {% extends "inventory/base.html" %}
+{% load mathfilters %}
+
+{% block title %}Dashboard - Autosthetics{% endblock %}
 
 {% block content %}
+<!-- 1. FIXED: Correct & Stable Lucide CDN -->
+<script src="https://unpkg.com"></script>
 
-<div class="container py-4">
+<style>
+    :root {
+        --studio-dark: #0f172a;
+        --glass-bg: rgba(255, 255, 255, 0.9);
+        --glass-border: rgba(231, 234, 243, 0.7);
+    }
 
-    <!-- Header - Gradient Gold -->
-    <div class="p-4 rounded-4 text-white mb-4"
-         style="background: linear-gradient(135deg, #d4af37, #b8860b);">
-        <h1 class="fw-bold fs-4">📊 Dashboard Overview</h1>
-        <p class="mb-0 small opacity-75">
-            Welcome back! Here’s your shop performance today.
-        </p>
+    body { background-color: #f3f4f6; }
+
+    /* SIDEBAR ACTIVE PATCH - Forces the sidebar to stay black on this page */
+    .nav-sidebar a.active {
+        background-color: var(--studio-dark) !important;
+        color: #ffffff !important;
+    }
+    .nav-sidebar a.active i, .nav-sidebar a.active svg {
+        stroke: #ffffff !important;
+    }
+
+    .dashboard-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--glass-border);
+        border-radius: 20px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .icon-box {
+        width: 48px; height: 48px;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+    }
+
+    .bg-soft-primary { background: #e7f0ff; color: #0d6efd; }
+    .bg-soft-danger { background: #ffeef0; color: #dc3545; }
+    .bg-soft-success { background: #e6f9f0; color: #198754; }
+
+    .action-btn {
+        background: rgba(15, 23, 42, 0.05);
+        border: 1px solid rgba(15, 23, 42, 0.1);
+        color: var(--studio-dark);
+        padding: 1rem;
+        border-radius: 12px;
+        text-decoration: none;
+        display: flex; align-items: center;
+        transition: all 0.2s;
+    }
+    .action-btn:hover { background: rgba(15, 23, 42, 0.1); color: var(--studio-dark); }
+</style>
+
+<div class="container-fluid py-4 px-lg-5">
+    
+    <!-- TOP HEADER -->
+    <div class="d-flex align-items-center justify-content-between mb-5">
+        <div>
+            <h2 class="fw-bold mb-1">Dashboard Overview</h2>
+            <p class="text-muted small mb-0">System status for <strong>Autosthetics</strong></p>
+        </div>
+        <div>
+            <a href="{% url 'reports' %}" class="btn btn-primary rounded-pill px-4 shadow-sm fw-bold">
+                <i data-lucide="file-text" class="me-2" style="width: 18px;"></i>View Reports
+            </a>
+        </div>
     </div>
 
-    <!-- Stats -->
-    <div class="row g-3 mb-4">
-
+    <!-- MAIN STATS GRID -->
+    <div class="row g-4 mb-5">
         <div class="col-md-4">
-            <div class="card shadow-sm border-0">
-                <div class="card-body p-3 text-center">
-                    <h6 class="text-muted small mb-1">Total Items</h6>
-                    <h3 class="fw-bold mb-0">{{ total_items }}</h3>
+            <div class="card dashboard-card shadow-sm p-4 border-0">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="icon-box bg-soft-primary"><i data-lucide="package"></i></div>
+                    <a href="{% url 'all_items' %}" class="btn btn-sm btn-light rounded-pill px-3 small">View All</a>
                 </div>
+                <h6 class="text-muted small fw-bold tracking-wider">TOTAL INVENTORY</h6>
+                <h1 class="fw-bold mb-0 text-dark">{{ total_items }}</h1>
             </div>
         </div>
 
         <div class="col-md-4">
-            <div class="card shadow-sm border-0">
-                <div class="card-body p-3 text-center">
-                    <h6 class="text-muted small mb-1">Low Stock</h6>
-                    <h3 class="fw-bold text-danger mb-0">{{ low_stock }}</h3>
+            <div class="card dashboard-card shadow-sm p-4 border-0">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="icon-box bg-soft-danger"><i data-lucide="alert-triangle"></i></div>
+                    <span class="badge bg-danger rounded-pill px-3">{{ low_stock }} Low</span>
                 </div>
+                <h6 class="text-muted small fw-bold tracking-wider">CRITICAL STOCK</h6>
+                <h1 class="fw-bold mb-0 text-danger">{{ low_stock }}</h1>
             </div>
         </div>
 
         <div class="col-md-4">
-            <div class="card shadow-sm border-0">
-                <div class="card-body p-3 text-center">
-                    <h6 class="text-muted small mb-1">Inventory Value</h6>
-                    <h3 class="fw-bold text-success mb-0">₱{{ total_value }}</h3>
+            <div class="card dashboard-card shadow-sm p-4 border-0">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="icon-box bg-soft-success"><i data-lucide="banknote"></i></div>
                 </div>
+                <h6 class="text-muted small fw-bold tracking-wider">TOTAL EQUITY</h6>
+                <h1 class="fw-bold mb-0 text-success">₱{{ total_value }}</h1>
             </div>
         </div>
-
     </div>
 
-    <!-- New Interesting Displays -->
-    <div class="row g-3">
-
-        <!-- Inventory Health -->
-        <div class="col-md-6">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">🩺 Inventory Health</h5>
-                    <p class="text-muted small">
-                        How healthy is your stock?
-                    </p>
-
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item d-flex justify-content-between">
-                            <span>Low Stock Items</span>
-                            <span class="text-danger">{{ low_stock }}</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between">
-                            <span>Total Items</span>
-                            <span>{{ total_items }}</span>
-                        </li>
-                    </ul>
-
+    <!-- SECONDARY GRID -->
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card dashboard-card shadow-sm border-0 h-100 overflow-hidden">
+                <div class="card-header bg-white py-4 px-4 border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0">📦 Stock Distribution</h5>
+                    <a href="{% url 'categories' %}" class="btn btn-sm btn-outline-dark rounded-pill px-3">Manage</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4 text-muted small py-3">CATEGORY</th>
+                                <th class="text-muted small py-3">COUNT</th>
+                                <th class="text-end pe-4 text-muted small py-3">DETAILS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for category in stock_distribution %}
+                            <tr>
+                                <td class="ps-4 fw-bold text-dark">{{ category.name }}</td>
+                                <td class="text-secondary">{{ category.count }} units</td>
+                                <td class="text-end pe-4">
+                                    <a href="{% url 'all_items' %}?q={{ category.name }}" class="btn btn-sm btn-light border">
+                                        <i data-lucide="chevron-right" size="14"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
-<!-- Stock Distribution -->
-<div class="col-md-6">
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <h5 class="card-title">📦 Stock Distribution</h5>
-            <p class="text-muted small">
-                Overview of stock by category.
-            </p>
-
-            {% if stock_distribution %}
-    <ul>
-    {% for category in stock_distribution %}
-    <li>{{ category.name }} - {{ category.count }}</li>
-    {% endfor %}
-    </ul>
-    {% else %}
-    <p>No category data available yet.</p>
-    {% endif %}
-
+        <!-- QUICK ACTION CONSOLE -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm p-4 rounded-4 bg-dark text-white border-0 h-100" 
+                 style="background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);">
+                <h5 class="fw-bold mb-4 d-flex align-items-center">
+                    <i data-lucide="zap" class="text-warning me-2" size="20"></i> Command Console
+                </h5>
+                <div class="d-flex flex-column gap-3">
+                    <a href="{% url 'add_item' %}" class="action-btn text-white" style="background: rgba(255,255,255,0.05);">
+                        <i data-lucide="plus-circle" class="me-3 text-primary"></i> New Product
+                    </a>
+                    <a href="{% url 'adjust_stock' %}" class="action-btn text-white" style="background: rgba(255,255,255,0.05);">
+                        <i data-lucide="refresh-cw" class="me-3 text-success"></i> Stock Adjustment
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 </div>
-        <!-- Quick Insights -->
-        <div class="col-md-12">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">💡 Quick Insights</h5>
 
-                    <div class="list-group list-group-flush">
-                        <div class="list-group-item d-flex justify-content-between">
-                            <span>Items Below Minimum</span>
-                            <span class="text-danger">{{ low_stock }}</span>
-                        </div>
-                        <div class="list-group-item d-flex justify-content-between">
-                        <span>Well-Stocked Items</span>
-                        <span class="text-success">{{ well_stock }}</span>
-                    </div>
+<!-- Scripts -->
+<script src="https://jsdelivr.net"></script>
 
-                </div>
-            </div>
-        </div>
+<!-- FIXED: Stable UMD version of Lucide -->
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 
-    </div>
+<script>
+    // 1. Define the render function
+    function renderIcons() {
+        if (window.lucide) {
+            lucide.createIcons();
+            console.log("Lucide: Icons rendered.");
+        } else {
+            console.error("Lucide: Script not found.");
+        }
+    }
 
-</div>
+    // 2. Trigger immediately
+    renderIcons();
+
+    // 3. Trigger again when the full page is ready
+    document.addEventListener("DOMContentLoaded", renderIcons);
+    
+    // 4. Final safety trigger (for slow connections)
+    window.onload = renderIcons;
+</script>
 
 {% endblock %}

@@ -1,146 +1,259 @@
 {% extends 'inventory/base.html' %}
-{% block title %}Settings{% endblock %}
-{% block page_title %}Settings{% endblock %}
+{% block title %}System Settings | Autosthetics{% endblock %}
+
 {% block content %}
+<script src="https://unpkg.com"></script>
+
+<style>
+    :root {
+        --sidebar-bg: #fcfdfe;
+        --accent-color: #0d6efd;
+        --border-color: #e2e8f0;
+        --text-main: #1e293b;
+    }
+
+    body { background-color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+    /* Layout Wrapper */
+    .settings-wrapper {
+        display: flex;
+        height: 82vh;
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.05);
+        margin-top: 1.5rem;
+    }
+
+    /* Sidebar */
+    .settings-nav {
+        width: 280px;
+        background: var(--sidebar-bg);
+        border-right: 1px solid var(--border-color);
+        padding: 2.5rem 1.2rem;
+    }
+
+    .nav-pill-custom {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border-radius: 12px;
+        color: #64748b;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.2s;
+        margin-bottom: 6px;
+    }
+
+    .nav-pill-custom.active {
+        background: white;
+        color: var(--accent-color);
+        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.1);
+        border: 1px solid rgba(13, 110, 253, 0.1);
+    }
+
+    /* Content Area */
+    .settings-body {
+        flex: 1;
+        padding: 3.5rem 4rem;
+        overflow-y: auto;
+        scroll-behavior: smooth;
+    }
+
+    section { margin-bottom: 5rem; }
+
+    /* Form Styling */
+    .label-modern {
+        font-size: 11px;
+        font-weight: 800;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 10px;
+        display: block;
+    }
+
+    .settings-body input, .settings-body select, .settings-body textarea {
+        border: 1.5px solid #eef0f5;
+        border-radius: 12px;
+        padding: 12px 16px;
+        font-size: 14px;
+        width: 100%;
+        background: #fcfdfe;
+        transition: all 0.2s;
+        outline: none;
+        margin-bottom: 1.5rem;
+    }
+
+    .settings-body input:focus {
+        border-color: var(--accent-color);
+        background: white;
+        box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.05);
+    }
+
+    /* Sticky Footer */
+    .sticky-save-bar {
+        position: sticky;
+        bottom: -3.5rem;
+        margin: 3.5rem -4rem -3.5rem -4rem;
+        padding: 1.5rem 4rem;
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: flex-end;
+        z-index: 100;
+    }
+
+    .btn-save {
+        background: #000;
+        color: white;
+        border: none;
+        padding: 14px 40px;
+        border-radius: 100px;
+        font-weight: 700;
+        transition: transform 0.2s;
+    }
+    .btn-save:hover { transform: scale(1.02); color: white; }
+</style>
 
 <div class="container py-4">
-
-    <!-- HEADER -->
-    <div class="p-3 rounded-4 text-white mb-4"
-         style="background: linear-gradient(135deg, #0d6efd, #6610f2);
-                box-shadow: 0 8px 20px rgba(13,110,253,0.14);">
-        <h4 class="fw-bold mb-1">Settings</h4>
-        <p class="mb-0 small opacity-75">
-            Manage account and shop preferences
-        </p>
-    </div>
-
-    <form method="POST">
-        {% csrf_token %}
-
-        <!-- ACCOUNT INFO -->
-        <div class="card shadow-sm border-0 mb-3">
-            <div class="card-body">
-                <h5 class="card-title mb-3">Account</h5>
-
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label small text-muted">Username</label>
-                        <input type="text" name="username" class="form-control" value="{{ username }}" required>
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label small text-muted">Email</label>
-                        <input type="email" name="email" class="form-control" value="{{ email }}">
-                    </div>
+    
+    <!-- MESSAGES -->
+    {% if messages %}
+        <div class="row justify-content-center">
+            <div class="col-lg-12">
+                {% for message in messages %}
+                <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} alert-dismissible fade show rounded-4 border-0 shadow-sm mb-4">
+                    {{ message }}
+                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="alert"></button>
                 </div>
+                {% endfor %}
             </div>
         </div>
+    {% endif %}
 
-        <!-- PASSWORD CHANGE -->
-        <div class="card shadow-sm border-0 mb-3">
-            <div class="card-body">
-                <h5 class="card-title mb-3">Change Password</h5>
+    <div class="settings-wrapper">
+        
+        <!-- SIDEBAR -->
+        <div class="settings-nav">
+            <h5 class="fw-bold mb-4 ps-2">System Config</h5>
+            <a href="#profile" class="nav-pill-custom active" onclick="activateLink(this)"><i data-lucide="user" size="18"></i> Profile</a>
+            <a href="#security" class="nav-pill-custom" onclick="activateLink(this)"><i data-lucide="lock" size="18"></i> Security</a>
+            <a href="#shop" class="nav-pill-custom" onclick="activateLink(this)"><i data-lucide="store" size="18"></i> Shop Data</a>
+        </div>
 
-                <div class="mb-3">
-                    <label class="form-label small text-muted">Current Password</label>
-                    <div class="input-group">
-                        <input type="password" name="current_password" id="current_password" class="form-control" required>
-                        <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('current_password','toggleCurrent')">
-                            <i id="toggleCurrent" class="bi bi-eye"></i>
+        <!-- CONTENT -->
+        <div class="settings-body" id="scrollArea">
+            <form method="POST">
+                {% csrf_token %}
+
+                <!-- SECTION: PROFILE -->
+                <section id="profile">
+                    <h4 class="fw-bold mb-1">Account Identity</h4>
+                    <p class="text-muted small mb-4">Manage your administrative credentials and email.</p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="label-modern">Username</label>
+                            <input type="text" name="username" value="{{ username }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="label-modern">Email Address</label>
+                            <input type="email" name="email" value="{{ email }}">
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: SECURITY -->
+                <section id="security">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <h4 class="fw-bold mb-0">Security</h4>
+                        <button type="button" class="btn btn-sm btn-outline-dark rounded-pill px-3 fw-bold" onclick="toggleSecurity()">
+                            Change Password
                         </button>
                     </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label small text-muted">New Password</label>
-                        <div class="input-group">
-                            <input type="password" name="new_password" id="new_password" class="form-control">
-                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('new_password','toggleNew')">
-                                <i id="toggleNew" class="bi bi-eye"></i>
-                            </button>
+                    <p class="text-muted small mb-4">Protect your account with a secure password.</p>
+                    
+                    <div id="security-fields" style="display: none; border-top: 1px solid #f1f5f9; padding-top: 2rem;">
+                        <label class="label-modern text-danger">Authorize with Current Password</label>
+                        <input type="password" name="current_password" placeholder="••••••••">
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="label-modern">New Password</label>
+                                <input type="password" name="new_password">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="label-modern">Confirm New Password</label>
+                                <input type="password" name="confirm_password">
+                            </div>
                         </div>
                     </div>
+                </section>
 
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label small text-muted">Confirm New Password</label>
-                        <div class="input-group">
-                            <input type="password" name="confirm_password" id="confirm_password" class="form-control">
-                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('confirm_password','toggleConfirm')">
-                                <i id="toggleConfirm" class="bi bi-eye"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <p class="small text-muted mt-1">
-                    Leave blank if you don’t want to change your password.
-                </p>
-            </div>
-        </div>
-
-        <!-- SHOP INFO -->
-        <div class="card shadow-sm border-0 mb-3">
-            <div class="card-body">
-                <h5 class="card-title mb-3">Shop Information</h5>
-
-                <div class="mb-3">
-                    <label class="form-label small text-muted">Shop Name</label>
+                <!-- SECTION: SHOP -->
+                <section id="shop">
+                    <h4 class="fw-bold mb-1">Business Details</h4>
+                    <p class="text-muted small mb-4">Information used for branding on your PDF reports.</p>
+                    <label class="label-modern">Business Display Name</label>
                     {{ form.shop_name }}
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label small text-muted">Address</label>
-                    {{ form.address }}
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label small text-muted">Contact</label>
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <label class="label-modern">Office Address</label>
+                            {{ form.address }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="label-modern">Alert Threshold</label>
+                            {{ form.low_stock_limit }}
+                        </div>
+                    </div>
+                    <label class="label-modern mt-3">Public Contact Information</label>
                     {{ form.contact }}
+                </section>
+
+                <!-- FOOTER -->
+                <div class="sticky-save-bar">
+                    <button type="submit" class="btn-save shadow-lg">Synchronize Changes</button>
                 </div>
-            </div>
+            </form>
         </div>
-
-        <!-- INVENTORY SETTINGS -->
-        <div class="card shadow-sm border-0 mb-3">
-            <div class="card-body">
-                <h5 class="card-title mb-3">Inventory</h5>
-
-                <div class="mb-2">
-                    <label class="form-label small text-muted">Low Stock Limit</label>
-                    {{ form.low_stock_limit }}
-                </div>
-
-                <p class="small text-muted mt-1">
-                    Items at or below this number will appear as low stock.
-                </p>
-            </div>
-        </div>
-
-        <!-- ACTIONS -->
-        <div class="d-flex justify-content-end gap-2">
-            <button type="submit" class="btn btn-primary">
-                Save Settings
-            </button>
-        </div>
-    </form>
-
+    </div>
 </div>
 
-<!-- PASSWORD TOGGLE SCRIPT -->
 <script>
-function togglePassword(fieldId, iconId) {
-    const field = document.getElementById(fieldId);
-    const icon = document.getElementById(iconId);
-    if (field.type === "password") {
-        field.type = "text";
-        icon.classList.replace("bi-eye", "bi-eye-slash");
-    } else {
-        field.type = "password";
-        icon.classList.replace("bi-eye-slash", "bi-eye");
-    }
-}
-</script>
+    lucide.createIcons();
 
+    // 1. Password Toggle Logic
+    function toggleSecurity() {
+        const fields = document.getElementById('security-fields');
+        fields.style.display = fields.style.display === 'none' ? 'block' : 'none';
+        if(fields.style.display === 'block') fields.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // 2. Sidebar Link Activation
+    function activateLink(el) {
+        document.querySelectorAll('.nav-pill-custom').forEach(l => l.classList.remove('active'));
+        el.classList.add('active');
+    }
+
+    // 3. Scroll Sync
+    const scrollArea = document.getElementById('scrollArea');
+    const sections = document.querySelectorAll('section');
+    const navLinks = document.querySelectorAll('.nav-pill-custom');
+
+    scrollArea.onscroll = () => {
+        let current = "";
+        sections.forEach(s => {
+            if (scrollArea.scrollTop >= s.offsetTop - 100) current = s.getAttribute("id");
+        });
+        navLinks.forEach(l => {
+            l.classList.remove("active");
+            if (l.getAttribute("href").includes(current)) l.classList.add("active");
+        });
+    };
+</script>
 {% endblock %}

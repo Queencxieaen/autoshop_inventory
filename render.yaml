@@ -1,0 +1,24 @@
+services:
+  # 1. THE WEBSITE
+  - type: web
+    name: autoshop-inventory
+    env: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn autoshop.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: DJANGO_SETTINGS_MODULE
+        value: autoshop.settings
+      - key: DEBUG
+        value: "False" # Set to False for production
+      - key: TZ
+        value: "Asia/Manila"
+
+  # 2. THE AUTOMATIC SNAPSHOT (Midnight Task)
+  - type: cron
+    name: daily-snapshot-task
+    env: python
+    schedule: "1 0 * * *" # Runs at 12:01 AM Manila time
+    buildCommand: "./build.sh"
+    startCommand: "python manage.py generate_snapshots"

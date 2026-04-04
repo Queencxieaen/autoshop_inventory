@@ -1,61 +1,149 @@
 {% extends 'inventory/base.html' %}
-
-{% block title %}Low Stock - Autosthetics{% endblock %}
+{% block title %}Critical Alerts | Autosthetics{% endblock %}
 
 {% block content %}
+<style>
+    :root {
+        --critical-red: #ef4444;
+        --border-color: #f1f5f9;
+    }
+    body { background-color: #fcfdfe; font-family: 'Plus Jakarta Sans', sans-serif; }
 
-<div class="container py-4">
+    /* ALERT TOOLBAR */
+    .alert-toolbar {
+        background: white; border-bottom: 1px solid var(--border-color);
+        padding: 1.5rem 2rem; margin-bottom: 2.5rem;
+        display: flex; justify-content: space-between; align-items: center;
+    }
 
-<!-- Header -->
-<div class="p-3 rounded-4 text-white mb-4"
-     style="background: linear-gradient(135deg, #dc3545, #fd7e14);">
-    <h4 class="fw-bold mb-1">⚠️ Low Stock Items</h4>
-    <p class="mb-0 small opacity-75">
-        Items that need restocking or monitoring
-    </p>
-</div>
+    /* CARD & TABLE */
+    .critical-card {
+        background: white; border: 1px solid var(--border-color);
+        border-radius: 24px; overflow: hidden;
+        box-shadow: 0 10px 30px rgba(239, 68, 68, 0.05);
+    }
 
-    <!-- Table Card -->
-<div class="card shadow-sm">
-    <div class="table-responsive">
-        <table class="table table-hover mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th>Item</th>
-                    <th>Category</th>
-                    <th class="text-center">Quantity</th>
-                    <th class="text-center">Unit</th>
-                    <th class="text-center">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in low_stock_items %}
-                <tr>
-                    <td class="fw-medium">{{ item.name }}</td>
-                    <td>{{ item.category }}</td>
-                    <td class="text-center fw-bold text-danger">
-                        {{ item.quantity }}
-                    </td>
-                    <td class="text-center text-muted">{{ item.unit }}</td>
-                    <td class="text-center">
-                        <a href="{% url 'adjust_stock_with_item' item.id %}"
-                           class="btn btn-sm btn-outline-warning">
-                            ⚙️ Adjust
-                        </a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="5" class="text-center text-muted py-3">
-                        No low stock items.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    .critical-table thead th {
+        background: #f8fafc; font-size: 11px; font-weight: 800;
+        text-transform: uppercase; letter-spacing: 0.1em;
+        color: #94a3b8; padding: 1.25rem 1.5rem; border: none;
+    }
+
+    .critical-table tbody td { padding: 1.25rem 1.5rem; border-bottom: 1px solid #f8fafc; font-size: 14px; }
+
+    /* BADGES */
+    .qty-badge {
+        background: #fef2f2; color: var(--critical-red);
+        padding: 6px 12px; border-radius: 8px; font-weight: 800;
+        display: inline-flex; align-items: center; gap: 6px;
+    }
+
+    /* SEARCH BAR */
+    .search-terminal { position: relative; width: 350px; }
+    .search-terminal input {
+        width: 100%; padding: 10px 16px 10px 45px; border-radius: 100px;
+        border: 1.5px solid var(--border-color); background: #f8fafc;
+        font-size: 13px; outline: none; transition: all 0.2s;
+    }
+    .search-terminal input:focus {
+        border-color: var(--critical-red); background: white;
+        box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
+    }
+    .search-terminal i { position: absolute; left: 16px; top: 12px; color: #94a3b8; }
+
+    .btn-restock {
+        background: #0f172a; color: white; border: none;
+        padding: 8px 20px; border-radius: 100px; font-weight: 700;
+        font-size: 12px; text-decoration: none; display: inline-flex;
+        align-items: center; gap: 8px;
+    }
+</style>
+
+<div class="alert-toolbar shadow-sm">
+    <div class="d-flex align-items-center gap-3">
+        <div class="p-3 bg-danger bg-opacity-10 text-danger rounded-4">
+            <i data-lucide="bell-ring"></i>
+        </div>
+        <div>
+            <h4 class="fw-bold mb-0">Critical Stock Levels</h4>
+            <p class="text-muted small mb-0">Immediate restock required for {{ low_stock_items|length }} items</p>
+        </div>
+    </div>
+
+    <!-- SEARCH INPUT -->
+    <div class="search-terminal d-none d-md-block">
+        <i data-lucide="search" size="18"></i>
+        <input type="text" id="inventorySearch" placeholder="Filter by product or category...">
     </div>
 </div>
 
+<div class="container-fluid px-4 px-lg-5">
+    <div class="critical-card">
+        <div class="table-responsive">
+            <table class="table critical-table mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-4">Product Identity</th>
+                        <th>Classification</th>
+                        <th class="text-center">Current Stock</th>
+                        <th class="text-center">Measurement</th>
+                        <th class="text-end pe-4">Command</th>
+                    </tr>
+                </thead>
+                <tbody id="inventoryTable">
+                    {% for item in low_stock_items %}
+                    <tr class="item-row">
+                        <td class="ps-4">
+                            <div class="fw-bold text-dark product-name">{{ item.name }}</div>
+                            <div class="text-muted x-small">ID: #00{{ item.id }}</div>
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-muted border rounded-pill px-3 category-badge">{{ item.category|default:"General" }}</span>
+                        </td>
+                        <td class="text-center">
+                            <div class="qty-badge">
+                                <i data-lucide="trending-down" size="14"></i> {{ item.quantity }}
+                            </div>
+                        </td>
+                        <td class="text-center text-muted fw-medium">{{ item.unit|default:"Units" }}</td>
+                        <td class="text-end pe-4">
+                            <a href="{% url 'adjust_stock_with_item' item.pk %}" class="btn-restock">
+                                <i data-lucide="refresh-cw" size="14"></i> Adjust
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center py-5">Inventory Stable</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
+<script>
+    // Search Logic (Runs after page content loads)
+    document.addEventListener("DOMContentLoaded", function() {
+        const searchInput = document.getElementById('inventorySearch');
+        const tableBody = document.getElementById('inventoryTable');
+
+        if (searchInput && tableBody) {
+            searchInput.addEventListener('input', function(e) {
+                const query = e.target.value.toLowerCase().trim();
+                const rows = tableBody.getElementsByClassName('item-row');
+
+                for (let row of rows) {
+                    const name = row.querySelector('.product-name').textContent.toLowerCase();
+                    const category = row.querySelector('.category-badge').textContent.toLowerCase();
+
+                    if (name.includes(query) || category.includes(query)) {
+                        row.style.display = ""; 
+                    } else {
+                        row.style.display = "none";
+                    }
+                }
+            });
+        }
+    });
+</script>
 {% endblock %}

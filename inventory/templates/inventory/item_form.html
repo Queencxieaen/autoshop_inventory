@@ -1,82 +1,245 @@
-{% extends 'inventory/base.html' %}
+{% extends "inventory/base.html" %}
+{% block title %}Add New SKU | Autosthetics Studio{% endblock %}
+{% load widget_tweaks %}
+
 {% block content %}
-
-<div class="container d-flex justify-content-center py-4">
-  <div class="card shadow-sm border-0" style="max-width: 600px; width: 100%; border-radius: 14px;">
-    <div class="card-body p-4">
-
-      <h4 class="fw-bold mb-1">
-        {{ form.instance.pk|yesno:"✏️ Edit Item,➕ Add Item" }}
-      </h4>
-      <p class="text-muted small mb-4">
-        {{ form.instance.pk|yesno:"Update item details,Create a new item" }}
-      </p>
-
-      <form method="POST">
-        {% csrf_token %}
-
-        {{ form.non_field_errors }}
-
-        <div class="mb-3">
-          <label class="form-label fw-semibold">Name</label>
-          {{ form.name }}
-          {% for error in form.name.errors %}
-            <div class="text-danger small">{{ error }}</div>
-          {% endfor %}
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label fw-semibold">Category</label>
-          {{ form.category }}
-          {% for error in form.category.errors %}
-            <div class="text-danger small">{{ error }}</div>
-          {% endfor %}
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label fw-semibold">Unit</label>
-          {{ form.unit }}
-          {% for error in form.unit.errors %}
-            <div class="text-danger small">{{ error }}</div>
-          {% endfor %}
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label fw-semibold">Price (₱)</label>
-          {{ form.price }}
-          {% for error in form.price.errors %}
-            <div class="text-danger small">{{ error }}</div>
-          {% endfor %}
-        </div>
-
-        <div class="d-flex justify-content-end gap-2 mt-4">
-          <a href="{% url 'all_items' %}" class="btn btn-outline-secondary">
-            ❌ Cancel
-          </a>
-          <button type="submit" class="btn btn-primary">
-            💾 Save Item
-          </button>
-        </div>
-
-      </form>
-
-    </div>
-  </div>
-</div>
+<!-- Lucide Icons -->
+<script src="https://unpkg.com"></script>
 
 <style>
-/* Input styling */
-form input,
-form select,
-form textarea {
-  border-radius: 10px !important;
-  padding: 8px !important;
-}
+    :root {
+        --studio-amber: #f59e0b;
+        --studio-bg: #fcfdfe;
+        --studio-border: #f1f5f9;
+        --studio-text: #0f172a;
+    }
 
-/* Card glow (subtle) */
-.card {
-  background: #fff;
-}
+    body { background-color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+    /* 1. STUDIO WORKSPACE LAYOUT */
+    .studio-container {
+        max-width: 1100px;
+        margin: 4rem auto;
+        background: white;
+        border-radius: 32px;
+        display: flex;
+        overflow: hidden;
+        box-shadow: 0 40px 100px rgba(0,0,0,0.06);
+        border: 1px solid var(--studio-border);
+    }
+
+    /* Left Sidebar: Context & Visuals */
+    .studio-sidebar {
+        width: 35%;
+        background: linear-gradient(180deg, #fafbfc 0%, #f1f5f9 100%);
+        padding: 4rem 3rem;
+        border-right: 1px solid var(--studio-border);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .icon-glow {
+        width: 64px; height: 64px;
+        background: white;
+        color: var(--studio-amber);
+        border-radius: 20px;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 15px 30px rgba(245, 158, 11, 0.15);
+        margin-bottom: 2rem;
+    }
+
+    /* Right Side: Action Area */
+    .studio-workspace {
+        flex: 1;
+        padding: 4rem;
+        background: white;
+    }
+
+    /* 2. REFINED FORM INPUTS */
+    .label-caps {
+        font-size: 11px;
+        font-weight: 800;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 10px;
+        display: block;
+    }
+
+    .input-studio {
+        border: 2px solid var(--studio-border);
+        border-radius: 16px;
+        padding: 14px 20px;
+        font-size: 16px;
+        font-weight: 600;
+        width: 100%;
+        background: var(--studio-bg);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        outline: none;
+    }
+
+    .input-studio:focus {
+        border-color: var(--studio-amber);
+        background: white;
+        box-shadow: 0 10px 25px rgba(245, 158, 11, 0.08);
+        transform: translateY(-2px);
+    }
+
+    /* 3. PREMIUM ACTIONS */
+    .btn-studio-save {
+        background: var(--studio-text);
+        color: white;
+        border: none;
+        padding: 16px 40px;
+        border-radius: 100px;
+        font-weight: 700;
+        font-size: 15px;
+        transition: all 0.3s;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+
+    .btn-studio-save:hover {
+        background: #1e293b;
+        transform: translateY(-3px);
+        box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+        color: white;
+    }
+
+    .btn-studio-cancel {
+        color: #64748b;
+        font-weight: 600;
+        text-decoration: none;
+        transition: color 0.2s;
+        font-size: 14px;
+    }
+    .btn-studio-cancel:hover { color: var(--studio-text); }
+
+    /* Custom Input Group for PHP */
+    .input-group-studio {
+        display: flex;
+        align-items: center;
+        background: var(--studio-bg);
+        border: 2px solid var(--studio-border);
+        border-radius: 16px;
+        overflow: hidden;
+        transition: all 0.3s;
+    }
+    .input-group-studio:focus-within {
+        border-color: var(--studio-amber);
+        background: white;
+        box-shadow: 0 10px 25px rgba(245, 158, 11, 0.08);
+    }
+    .input-group-studio span {
+        padding: 0 20px;
+        font-weight: 800;
+        color: #94a3b8;
+    }
+    .input-group-studio input {
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
 </style>
+
+<div class="container py-2">
+    <div class="studio-container">
+        
+        <!-- SIDEBAR -->
+        <div class="studio-sidebar">
+            <div class="icon-glow">
+                <i data-lucide="package-plus" size="32"></i>
+            </div>
+            <h3 class="fw-black mb-3" style="letter-spacing: -0.04em;">Register SKU.</h3>
+            <p class="text-muted small mb-4 lh-lg">
+                Adding a new item creates a permanent record in your inventory database. You can manage <strong>stock levels</strong> via the adjustment console once the item is registered.
+            </p>
+            <div class="p-3 bg-white rounded-4 border border-warning border-opacity-25">
+                <p class="small text-muted mb-0 d-flex gap-2">
+                    <i data-lucide="info" size="16" class="text-warning"></i>
+                    <span>Ensure <strong>Unit Prices</strong> are accurate for correct valuation.</span>
+                </p>
+            </div>
+        </div>
+
+        <!-- MAIN WORKSPACE -->
+        <div class="studio-workspace">
+            
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show rounded-4 border-0 bg-light shadow-sm mb-5">
+                    <span class="small fw-bold text-dark">{{ message }}</span>
+                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="POST" class="needs-validation" novalidate>
+                {% csrf_token %}
+
+                <div class="row g-4">
+                    <!-- Item Name -->
+                    <div class="col-12 mb-2">
+                        <label for="id_name" class="label-caps">Product Identity</label>
+                        {{ form.name|add_class:"input-studio" }}
+                        {% if form.name.errors %}
+                            <p class="text-danger x-small mt-2 fw-bold">{{ form.name.errors.as_text }}</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Category -->
+                    <div class="col-md-12 mb-2">
+                        <label for="id_category" class="label-caps">Classification</label>
+                        {{ form.category|add_class:"input-studio" }}
+                    </div>
+
+                    <!-- Unit -->
+                    <div class="col-md-6 mb-2">
+                        <label for="id_unit" class="label-caps">Unit of Measure</label>
+                        {{ form.unit|add_class:"input-studio" }}
+                    </div>
+
+                    <!-- Price -->
+                    <div class="col-md-6 mb-2">
+                        <label for="id_price" class="label-caps">Price Point (₱)</label>
+                        <div class="input-group-studio">
+                            <span>₱</span>
+                            {{ form.price|add_class:"input-studio" }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center justify-content-between mt-5 pt-4 border-top">
+                    <a href="{% url 'all_items' %}" class="btn-studio-cancel">
+                        <i data-lucide="arrow-left" class="me-1 d-inline" size="14"></i> Back to Ledger
+                    </a>
+                    <button type="submit" class="btn-studio-save">
+                        Register SKU
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    lucide.createIcons();
+
+    // Bootstrap 5 validation
+    (function () {
+        'use strict'
+        const forms = document.querySelectorAll('.needs-validation')
+        Array.from(forms).forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+                form.classList.add('was-validated')
+            }, false)
+        })
+    })()
+</script>
 
 {% endblock %}

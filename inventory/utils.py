@@ -6,56 +6,64 @@ from inventory.models import Item, DailySnapshot, DailyItemSnapshot, StockMoveme
 
 def create_snapshot(snapshot_date=None):
     snapshot_date = snapshot_date or date.today()
+    snapshot, _ = DailySnapshot.objects.get_or_create(date=snapshot_date)
 
-    snapshot, created = DailySnapshot.objects.get_or_create(date=snapshot_date)
-
-    # ❌ DO NOT TOUCH if already exists (VERY IMPORTANT)
-    if not created:
-        return snapshot
+    # Use a specific 'yesterday' date to ensure chain continuity
+    yesterday_date = snapshot_date - timedelta(days=1)
+    previous_snapshot = DailySnapshot.objects.filter(date=yesterday_date).first()
 
     items = Item.objects.all()
-
     start = datetime.combine(snapshot_date, datetime.min.time())
     end = start + timedelta(days=1)
 
-    # Get previous snapshot
-    previous_snapshot = DailySnapshot.objects.filter(date__lt=snapshot_date).order_by('-date').first()
-
     for item in items:
-        # ✅ Get previous ending
+        # Determine Beginning Balance
+        beginning = 0
         if previous_snapshot:
             prev_item = DailyItemSnapshot.objects.filter(
-                snapshot=previous_snapshot,
-                item=item
+                snapshot=previous_snapshot, item=item
             ).first()
-            beginning = prev_item.ending_quantity if prev_item else 0
+            # Carry over the previous ending, or fallback to live quantity
+            beginning = prev_item.ending_quantity if prev_item else item.quantity
         else:
-            beginning = item.quantity or 0
+            # FIX: Use live quantity instead of 0 for new snapshots
+            beginning = item.quantity
 
-        # Calculate movements
+        # Calculate Movements
         stock_in = StockMovement.objects.filter(
-            item=item,
-            reason="add",
-            date__gte=start,
-            date__lt=end
+            item=item, reason="add", date__range=(start, end)
         ).aggregate(total=Sum('quantity'))['total'] or 0
 
         stock_out = StockMovement.objects.filter(
-            item=item,
-            reason="remove",
-            date__gte=start,
-            date__lt=end
+            item=item, reason="remove", date__range=(start, end)
         ).aggregate(total=Sum('quantity'))['total'] or 0
 
+        # Calculate Ending
         ending = beginning + stock_in - stock_out
 
-        DailyItemSnapshot.objects.create(
+        # Save or Update
+        DailyItemSnapshot.objects.update_or_create(
             snapshot=snapshot,
             item=item,
-            beginning_quantity=beginning,
-            stock_in=stock_in,
-            stock_out=stock_out,
-            ending_quantity=ending
+            defaults={
+                'beginning_quantity': beginning,
+                'stock_in': stock_in,
+                'stock_out': stock_out,
+                'ending_quantity': ending
+            }
         )
-
     return snapshot
+
+def ensure_daily_snapshots():
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+
+    # Ensure yesterday exists
+    if not DailySnapshot.objects.filter(date=yesterday).exists():
+        create_snapshot(snapshot_date=yesterday)
+
+    # Ensure today exists
+    if not DailySnapshot.objects.filter(date=today).exists():
+        create_snapshot(snapshot_date=today)
+
+    return True

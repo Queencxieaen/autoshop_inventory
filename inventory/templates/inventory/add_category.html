@@ -1,92 +1,192 @@
 {% extends "inventory/base.html" %}
-
-{% block title %}Add Category{% endblock %}
+{% block title %}Edit Category | Autosthetics Studio{% endblock %}
+{% load widget_tweaks %}
 
 {% block content %}
-<div class="container py-4">
+<!-- Lucide Icons -->
+<script src="https://unpkg.com"></script>
 
-    <!-- Header -->
-    <div class="mb-4">
-        <h1 class="fw-bold mb-1">Add Category</h1>
-        <p class="text-muted mb-0">
-            Create a new inventory category
-        </p>
-    </div>
+<style>
+    :root {
+        --studio-amber: #f59e0b;
+        --studio-bg: #fcfdfe;
+        --studio-border: #f1f5f9;
+        --studio-text: #0f172a;
+    }
 
-    <!-- Form Card (centered & responsive) -->
-    <div class="card shadow-sm border-0 mx-auto" style="max-width: 600px; border-radius: 14px;">
-        <div class="card-body p-4">
+    body { background-color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
 
+    /* 1. STUDIO WORKSPACE LAYOUT */
+    .studio-container {
+        max-width: 1000px;
+        margin: 5rem auto;
+        background: white;
+        border-radius: 32px;
+        display: flex;
+        overflow: hidden;
+        box-shadow: 0 40px 100px rgba(0,0,0,0.06);
+        border: 1px solid var(--studio-border);
+    }
+
+    /* Left Sidebar: Context & Visuals */
+    .studio-sidebar {
+        width: 38%;
+        background: linear-gradient(180deg, #fafbfc 0%, #f1f5f9 100%);
+        padding: 4rem 3rem;
+        border-right: 1px solid var(--studio-border);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .icon-glow {
+        width: 64px; height: 64px;
+        background: white;
+        color: var(--studio-amber);
+        border-radius: 20px;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 15px 30px rgba(245, 158, 11, 0.15);
+        margin-bottom: 2rem;
+    }
+
+    /* Right Side: Action Area */
+    .studio-workspace {
+        flex: 1;
+        padding: 4rem;
+        background: white;
+    }
+
+    /* 2. REFINED FORM INPUTS */
+    .label-caps {
+        font-size: 11px;
+        font-weight: 800;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 12px;
+        display: block;
+    }
+
+    .input-studio {
+        border: 2px solid var(--studio-border);
+        border-radius: 16px;
+        padding: 16px 20px;
+        font-size: 18px;
+        font-weight: 600;
+        width: 100%;
+        background: var(--studio-bg);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        outline: none;
+    }
+
+    .input-studio:focus {
+        border-color: var(--studio-amber);
+        background: white;
+        box-shadow: 0 10px 25px rgba(245, 158, 11, 0.08);
+        transform: translateY(-2px);
+    }
+
+    /* 3. PREMIUM ACTIONS */
+    .btn-studio-save {
+        background: var(--studio-text);
+        color: white;
+        border: none;
+        padding: 16px 32px;
+        border-radius: 100px;
+        font-weight: 700;
+        font-size: 15px;
+        transition: all 0.3s;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+
+    .btn-studio-save:hover {
+        background: #1e293b;
+        transform: translateY(-3px);
+        box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+        color: white;
+    }
+
+    .btn-studio-cancel {
+        color: #64748b;
+        font-weight: 600;
+        text-decoration: none;
+        transition: color 0.2s;
+        font-size: 14px;
+    }
+    .btn-studio-cancel:hover { color: var(--studio-text); }
+</style>
+
+<div class="container py-2">
+    <div class="studio-container">
+        
+        <!-- SIDEBAR -->
+        <div class="studio-sidebar">
+            <div class="icon-glow">
+                <i data-lucide="layers" size="32"></i>
+            </div>
+            <h3 class="fw-black mb-3" style="letter-spacing: -0.04em;">Edit Label.</h3>
+            <p class="text-muted small mb-0 lh-lg">
+                Refining a category name will automatically synchronize all associated inventory items. Choose a name that is <strong>descriptive</strong> and <strong>unique</strong>.
+            </p>
+        </div>
+
+        <!-- MAIN WORKSPACE -->
+        <div class="studio-workspace">
+            
             {% if messages %}
                 {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show rounded-4 border-0 bg-light shadow-sm mb-5">
+                    <span class="small fw-bold text-dark">{{ message }}</span>
+                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="alert"></button>
+                </div>
                 {% endfor %}
             {% endif %}
 
-            <form method="POST">
+            <form method="POST" class="needs-validation" novalidate>
                 {% csrf_token %}
 
-                <!-- Category Name -->
-                <div class="mb-3">
-                    <label for="id_name" class="form-label fw-semibold">Category Name</label>
-                    <input type="text" name="name" id="id_name" class="form-control form-control-lg" 
-                           value="{{ form.name.value|default_if_none:'' }}" placeholder="Enter category name" required>
+                <div class="mb-5">
+                    <label for="id_name" class="label-caps">Category Identifier</label>
+                    {{ form.name|add_class:"input-studio" }}
+                    
                     {% if form.name.errors %}
-                        <div class="text-danger small mt-1">
-                            {{ form.name.errors.as_text|escape }}
+                        <div class="text-danger small mt-3 d-flex align-items-center gap-2">
+                            <i data-lucide="alert-circle" size="14"></i>
+                            <span class="fw-bold">{{ form.name.errors.as_text }}</span>
                         </div>
                     {% endif %}
                 </div>
 
-                <!-- Category Description -->
-                <div class="mb-3">
-                    <label for="id_description" class="form-label fw-semibold">Description</label>
-                    <textarea name="description" id="id_description" class="form-control" 
-                              placeholder="Optional description">{{ form.description.value|default_if_none:'' }}</textarea>
-                    {% if form.description.errors %}
-                        <div class="text-danger small mt-1">
-                            {{ form.description.errors.as_text|escape }}
-                        </div>
-                    {% endif %}
-                </div>
-
-                <!-- Submit -->
-                <div class="d-grid mt-3">
-                    <button type="submit" class="btn btn-primary fw-semibold">
-                        Add Category
+                <div class="d-flex align-items-center justify-content-between mt-5 pt-4 border-top">
+                    <a href="{% url 'categories' %}" class="btn-studio-cancel">
+                        <i data-lucide="arrow-left" class="me-1 d-inline" size="14"></i> Discard
+                    </a>
+                    <button type="submit" class="btn-studio-save">
+                        Apply Changes
                     </button>
                 </div>
-
             </form>
-
         </div>
-    </div>
-
-    <!-- Back Link -->
-    <div class="text-center mt-3">
-        <a href="{% url 'categories' %}" class="text-decoration-none">
-            ← Back to Categories
-        </a>
     </div>
 </div>
 
-<style>
-    /* Input & textarea styling */
-    input.form-control, textarea.form-control {
-        border-radius: 10px;
-        padding: 10px;
-    }
+<script>
+    lucide.createIcons();
 
-    /* Button hover effect */
-    .btn {
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-    .btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-    }
-</style>
+    // Bootstrap 5 validation
+    (function () {
+        'use strict'
+        const forms = document.querySelectorAll('.needs-validation')
+        Array.from(forms).forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+                form.classList.add('was-validated')
+            }, false)
+        })
+    })()
+</script>
+
 {% endblock %}

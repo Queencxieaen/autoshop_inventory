@@ -1,91 +1,202 @@
 {% extends "inventory/base.html" %}
+{% block title %}Reports Hub | Autosthetics{% endblock %}
+
 {% block content %}
+<!-- Lucide Icons -->
+<script src="https://unpkg.com"></script>
 
-<div class="container py-4">
+<style>
+    :root {
+        --brand-teal: #14b8a6;
+        --brand-dark: #0f172a;
+        --soft-bg: #f8fafc;
+        --border-color: #e2e8f0;
+    }
 
-    <!-- HEADER -->
-    <div class="p-4 rounded-4 text-white mb-4"
-         style="background: linear-gradient(135deg, #0f766e, #14b8a6);
-                box-shadow: 0 10px 25px rgba(15,118,110,0.2);">
+    body { background-color: var(--soft-bg); font-family: 'Plus Jakarta Sans', sans-serif; color: var(--brand-dark); }
 
-        <h3 class="fw-bold mb-1">Inventory Monthly Reports</h3>
-        <p class="mb-0 small opacity-75">
-            Generate and view monthly inventory performance reports.
-        </p>
-    </div>
+    /* Header Styling */
+    .page-header { border-bottom: 1px solid var(--border-color); background: white; padding: 2rem 0; margin-bottom: 3rem; }
 
-    <!-- QUICK ACCESS -->
-<div class="card shadow-sm border-0 rounded-4 mb-4">
-    <div class="card-body p-4 text-center">
+    /* Elegant Generator Card */
+    .generator-card {
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 24px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 10px 15px -3px rgba(0, 0, 0, 0.03);
+        transition: transform 0.3s ease;
+    }
 
-        <h5 class="fw-bold mb-3">Quick Access</h5>
+    /* Modernized Select Inputs */
+    .custom-select-group { position: relative; }
+    .custom-select-group label {
+        font-size: 11px;
+        font-weight: 700;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 8px;
+        display: block;
+    }
 
-        <a href="{% url 'daily_detail' today.year today.month today.day %}"
-           class="btn btn-lg text-white"
-           style="background:#0f766e;">
+    .elegant-select {
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 14px 16px;
+        font-size: 15px;
+        width: 100%;
+        background-color: #fcfdfe;
+        transition: all 0.2s;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        background-size: 1.2em;
+    }
 
-           📊 View Today's Report ({{ today }})
-        </a>
+    .elegant-select:focus { outline: none; border-color: var(--brand-teal); box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.1); }
 
+    /* High-End Button */
+    .btn-generate {
+        background: var(--brand-dark);
+        color: white;
+        font-weight: 600;
+        border-radius: 12px;
+        padding: 14px 24px;
+        border: none;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    .btn-generate:hover { background: #1e293b; transform: translateY(-1px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); color: white;}
+
+    /* Information Grid */
+    .info-item { text-align: center; padding: 1.5rem; }
+    .info-icon-box {
+        width: 44px; height: 44px;
+        background: #f0fdfa;
+        color: var(--brand-teal);
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 1rem;
+    }
+
+    .pill-link {
+        border: 1px solid var(--border-color);
+        padding: 8px 20px;
+        border-radius: 100px;
+        color: var(--brand-dark);
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 600;
+        transition: all 0.2s;
+        background: white;
+    }
+    .pill-link:hover { background: var(--brand-dark); color: white; border-color: var(--brand-dark); }
+</style>
+
+<div class="page-header">
+    <div class="container px-lg-5">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1 class="fw-bold mb-1" style="letter-spacing: -0.03em;">Reports Hub</h1>
+                <p class="text-muted small mb-0">Generate precision audits and inventory snapshots.</p>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <a href="{% url 'daily_detail' today.year today.month today.day %}" class="pill-link shadow-sm">
+                    <i data-lucide="zap" class="me-1 d-inline" size="14"></i> Today's Ledger
+                </a>
+            </div>
+        </div>
     </div>
 </div>
 
-    <!-- REPORT GENERATOR CARD -->
-    <div class="card shadow-sm border-0 rounded-4">
-        <div class="card-body p-4">
-
-            <!-- FORM NOW SUBMITS TO monthly_detail -->
-            <form method="GET" action="{% url 'monthly_detail' %}">
-                
-                <div class="row g-3">
-
-                    <!-- Year Selection -->
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold">Select Year</label>
-                        <select name="year" class="form-select rounded-3" required>
-                            <option value="">-- Choose Year --</option>
-                            {% for y in years %}
-                                <option value="{{ y.year }}">{{ y.year }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <!-- Month Selection -->
-                    <div class="col-md-4">
-                        <label class="form-label fw-semibold">Select Month</label>
-                        <select name="month" class="form-select rounded-3" required>
-                            <option value="">-- Choose Month --</option>
-                            <option value="1">January</option>
-                            <option value="2">February</option>
-                            <option value="3">March</option>
-                            <option value="4">April</option>
-                            <option value="5">May</option>
-                            <option value="6">June</option>
-                            <option value="7">July</option>
-                            <option value="8">August</option>
-                            <option value="9">September</option>
-                            <option value="10">October</option>
-                            <option value="11">November</option>
-                            <option value="12">December</option>
-                        </select>
-                    </div>
-
-                    <!-- Submit Button -->
-                    <div class="col-md-4 d-flex align-items-end">
-                        <button type="submit"
-                                class="btn w-100 text-white rounded-3"
-                                style="background: #14b8a6;">
-                            View Report
-                        </button>
-                    </div>
-
+<div class="container px-lg-5">
+    <div class="row justify-content-center">
+        <div class="col-xl-9">
+            
+            <div class="generator-card p-4 p-md-5">
+                <div class="mb-5">
+                    <h5 class="fw-bold mb-1">Monthly Performance Audit</h5>
+                    <p class="text-muted small">Select the fiscal period to compile data logs.</p>
                 </div>
 
-            </form>
+                <form method="GET" action="{% url 'monthly_detail' %}">
+                    <div class="row g-4 align-items-end">
+                        <div class="col-md-5">
+                            <div class="custom-select-group">
+                                <label>Accounting Year</label>
+                                <select name="year" class="elegant-select" required>
+                                    <option value="" disabled selected>Choose Year</option>
+                                    {% for y in years %}<option value="{{ y.year }}">{{ y.year }}</option>{% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="custom-select-group">
+                                <label>Target Month</label>
+                                <select name="month" class="elegant-select" required>
+                                    <option value="" disabled selected>Choose Month</option>
+                                    <option value="1">January</option><option value="2">February</option>
+                                    <option value="3">March</option><option value="4">April</option>
+                                    <option value="5">May</option><option value="6">June</option>
+                                    <option value="7">July</option><option value="8">August</option>
+                                    <option value="9">September</option><option value="10">October</option>
+                                    <option value="11">November</option><option value="12">December</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn-generate w-100">
+                                <i data-lucide="file-spreadsheet" size="18"></i>
+                                <span class="d-md-none d-lg-inline">Compile</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="mt-5 pt-5 border-top">
+                    <div class="row g-0">
+                        <div class="col-md-4">
+                            <div class="info-item">
+                                <div class="info-icon-box"><i data-lucide="shield-check" size="20"></i></div>
+                                <h6 class="fw-bold small mb-1">Encrypted Logs</h6>
+                                <p class="x-small text-muted mb-0">Secure and immutable data trails.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 border-start border-end">
+                            <div class="info-item">
+                                <div class="info-icon-box"><i data-lucide="clock" size="20"></i></div>
+                                <h6 class="fw-bold small mb-1">Instant Fetch</h6>
+                                <p class="x-small text-muted mb-0">Compiled in milliseconds.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="info-item">
+                                <div class="info-icon-box"><i data-lucide="printer" size="20"></i></div>
+                                <h6 class="fw-bold small mb-1">Print Ready</h6>
+                                <p class="x-small text-muted mb-0">Optimized for PDF and physical export.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Helpful Tip -->
+            <div class="mt-4 text-center">
+                <p class="text-muted" style="font-size: 13px;">
+                    <i data-lucide="help-circle" class="me-1 d-inline" size="14"></i>
+                    Need a custom date range? Contact your system administrator.
+                </p>
+            </div>
 
         </div>
     </div>
-
 </div>
 
+<script>
+    lucide.createIcons();
+</script>
 {% endblock %}

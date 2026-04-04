@@ -1,151 +1,231 @@
 {% extends "inventory/base.html" %}
-{% block title %}Daily Detail{% endblock %}
-{% block page_title %}Daily Detail{% endblock %}
+{% block title %}Daily Audit | {{ snapshot.date }}{% endblock %}
 
 {% block content %}
+<script src="https://unpkg.com"></script>
 
 <style>
-@media print {
-
-    /* Hide everything */
-    body * {
-        display: none;
+    :root {
+        --audit-teal: #0f766e;
+        --border-subtle: #f1f5f9;
     }
 
-    /* Show only report area */
-    #print-area, #print-area * {
-        display: block;
+    body { background-color: #f8fafc; font-family: 'Inter', sans-serif; color: #1e293b; }
+
+    /* Elegant Header */
+    .audit-header {
+        background: white;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 2.5rem 0;
+        margin-bottom: 2rem;
     }
 
-    #print-area {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
+    /* Floating Search & Action Bar */
+    .action-bar {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 100px;
+        padding: 8px 8px 8px 24px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
     }
 
-    /* Hide buttons */
-    .no-print {
-        display: none !important;
+    .search-input { border: none; outline: none; width: 100%; font-size: 14px; background: transparent; }
+
+    /* Category Blocks */
+    .category-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+        overflow: hidden;
+        transition: transform 0.2s;
+    }
+    .category-label {
+        background: #f8fafc;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e2e8f0;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 12px;
+        color: #64748b;
     }
 
-    table {
-        width: 100%;
-        border-collapse: collapse;
-    }
+    /* Refined Table */
+    .audit-table { margin-bottom: 0; font-size: 14px; }
+    .audit-table thead th { background: transparent; border-bottom: 2px solid #f1f5f9; color: #94a3b8; font-weight: 600; padding: 1rem 1.5rem; font-size: 12px; }
+    .audit-table td { padding: 1rem 1.5rem; vertical-align: middle; border-bottom: 1px solid #f8fafc; }
+    
+    /* Status indicators */
+    .stock-pill { padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 13px; }
+    .low-stock-alert { color: #ef4444; background: #fef2f2; }
 
-    th, td {
-        border: 1px solid #ccc;
-        padding: 8px;
+    /* Modal Redesign */
+    .custom-modal {
+        display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+        width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(8px);
     }
+    .modal-content-box {
+        background: white; width: 450px; margin: 10vh auto; border-radius: 24px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid rgba(255,255,255,0.2);
+    }
+    .modal-header { padding: 20px 24px; border-bottom: 1px solid #f1f5f9; }
+    .modal-body { padding: 24px; max-height: 400px; overflow-y: auto; }
+    .category-item {
+        padding: 12px; border-radius: 12px; transition: background 0.2s; cursor: pointer;
+        display: flex; align-items: center; gap: 12px; margin-bottom: 4px;
+    }
+    .category-item:hover { background: #f8fafc; }
+    .category-item input { width: 18px; height: 18px; accent-color: var(--audit-teal); }
 
-    th {
-        background: #f5f5f5;
+    @media print {
+        .no-print { display: none !important; }
+        body { background: white; }
+        .category-card { border: none; box-shadow: none; margin-bottom: 30px; }
+        .category-label { background: #eee !important; -webkit-print-color-adjust: exact; }
     }
-}
 </style>
 
-<div class="container py-4">
-
-<!-- TOP HEADER WITH SHOP NAME AND ACTION BUTTONS -->
-<div class="p-4 rounded-4 text-white mb-4 no-print"
-     style="background: linear-gradient(135deg, #0f766e, #14b8a6);
-            box-shadow: 0 10px 25px rgba(15,118,110,0.2);">
-
-    <div class="d-flex justify-content-between align-items-center">
-
-        <!-- SHOP NAME -->
+<!-- ELEGANT HEADER -->
+<div class="audit-header no-print">
+    <div class="container px-lg-5 d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="fw-bold mb-1">{{ shop_name }}</h2>
-            <p class="mb-0 small opacity-75">
-                Daily Inventory Report — {{ snapshot.date }}
-            </p>
+            <h5 class="text-uppercase fw-bold text-muted mb-1 small tracking-widest">{{ shop_name }}</h5>
+            <h2 class="fw-black mb-0">Daily Snapshot</h2>
+            <p class="text-secondary small mb-0"><i data-lucide="calendar" class="d-inline" size="14"></i> {{ snapshot.date|date:"F d, Y" }}</p>
         </div>
-
-        <!-- ACTION BUTTONS -->
-        <div class="d-flex gap-2">
-
-            <!-- EXPORT BUTTON -->
-            <form method="POST" action="{% url 'export_selected_days_pdf' snapshot.date.year snapshot.date.month %}">
-                {% csrf_token %}
-                <input type="hidden" name="selected_dates" value="{{ snapshot.date|date:'Y-m-d' }}">
-
-                <button class="btn btn-danger shadow-sm" type="submit">
-                    📄 Export PDF
-                </button>
-            </form>
-
+        <div class="action-bar">
+            <i data-lucide="search" class="text-muted" size="18"></i>
+            <input type="text" id="search" class="search-input" placeholder="Quick find item..." onkeyup="filterItems()">
+            <button class="btn btn-dark rounded-pill px-4 py-2 me-1 small fw-bold" onclick="openCategoryModal()">
+                <i data-lucide="file-down" class="me-1 d-inline" size="16"></i> Export PDF
+            </button>
         </div>
     </div>
 </div>
 
-<!-- SEARCH BOX -->
-<div class="mb-3 no-print">
-    <input type="text"
-           id="search"
-           class="form-control"
-           placeholder="Search item..."
-           onkeyup="filterItems()">
-</div>
-
-<!-- PRINT AREA (REPORT CONTENT) -->
-<div id="print-area">
-
+<!-- PRINTABLE AREA -->
+<div class="container px-lg-5" id="print-area">
+    
     {% if grouped %}
-
         {% for category, items in grouped.items %}
-            <div class="mb-4 category-block">
-
-                <h4 class="fw-bold text-center mb-3">
-                    {{ category }}
-                </h4>
-
-                <table class="table table-bordered table-hover">
-                    <thead class="table-light">
+        <div class="category-card category-block">
+            <div class="category-label d-flex justify-content-between align-items-center">
+                <span>{{ category }}</span>
+                <span class="badge bg-white text-muted border fw-normal">{{ items|length }} Items</span>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table audit-table">
+                    <thead>
                         <tr>
-                            <th>Item</th>
-                            <th class="text-center">Beginning</th>
-                            <th class="text-center">Stock In</th>
-                            <th class="text-center">Stock Out</th>
-                            <th class="text-center">Ending</th>
+                            <th>ITEM NAME</th>
+                            <th class="text-center">BEGINNING</th>
+                            <th class="text-center">STOCK IN</th>
+                            <th class="text-center">STOCK OUT</th>
+                            <th class="text-center text-dark">ENDING</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in items %}
                         <tr>
-                            <td class="item-name">{{ item.item.name }}</td>
-                            <td class="text-center">{{ item.beginning_quantity }}</td>
-                            <td class="text-center">{{ item.stock_in }}</td>
-                            <td class="text-center">{{ item.stock_out }}</td>
-                            <td class="text-center {% if item.ending_quantity <= 5 %}text-danger fw-bold{% endif %}">
-                                {{ item.ending_quantity }}
+                            <td class="fw-bold text-dark item-name">{{ item.item.name }}</td>
+                            <td class="text-center text-secondary">{{ item.beginning_quantity }}</td>
+                            <td class="text-center"><span class="text-success">{% if item.stock_in > 0 %}+{% endif %}{{ item.stock_in }}</span></td>
+                            <td class="text-center"><span class="text-danger">{% if item.stock_out > 0 %}-{% endif %}{{ item.stock_out }}</span></td>
+                            <td class="text-center">
+                                <span class="stock-pill {% if item.ending_quantity <= 5 %}low-stock-alert{% endif %}">
+                                    {{ item.ending_quantity }}
+                                </span>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
-
             </div>
+        </div>
         {% endfor %}
-
     {% else %}
-        <div class="alert alert-info">
-            No items found for this report.
+        <div class="text-center py-5">
+            <i data-lucide="package-search" size="48" class="text-muted mb-3"></i>
+            <h5 class="text-muted">No entries found for this date.</h5>
         </div>
     {% endif %}
-
 </div>
 
+<!-- REIMAGINED MODAL -->
+<div id="categoryModal" class="custom-modal no-print">
+    <div class="modal-content-box">
+        <div class="modal-header d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold mb-0">Export Configuration</h5>
+            <button onclick="closeCategoryModal()" class="btn-close shadow-none"></button>
+        </div>
+
+        <form method="POST" action="{% url 'export_selected_days_pdf' snapshot.date.year snapshot.date.month %}" onsubmit="closeCategoryModal()">
+            {% csrf_token %}
+            <input type="hidden" name="selected_dates" value="{{ snapshot.date|date:'Y-m-d' }}">
+
+            <div class="modal-body">
+                <p class="small text-muted mb-4">Choose the categories you wish to include in the PDF report.</p>
+                
+                <div class="d-flex gap-2 mb-3">
+                    <button type="button" class="btn btn-sm btn-light border flex-grow-1" onclick="toggleAll(true)">Select All</button>
+                    <button type="button" class="btn btn-sm btn-light border flex-grow-1" onclick="toggleAll(false)">Clear</button>
+                </div>
+
+                <div class="category-list mt-3">
+                    {% for category, items in grouped.items %}
+                    <label class="category-item">
+                        <input type="checkbox" name="categories" value="{{ category }}" checked>
+                        <span class="small fw-semibold text-dark">{{ category }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="p-4 pt-0">
+                <button type="submit" class="btn btn-dark w-100 py-3 rounded-4 fw-bold">
+                    Compile & Download PDF
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
+
 <script>
-function filterItems() {
-    let input = document.getElementById("search").value.toLowerCase();
-    let rows = document.querySelectorAll("tbody tr");
+    lucide.createIcons();
 
-    rows.forEach(row => {
-        let text = row.textContent.toLowerCase();
-        row.style.display = text.includes(input) ? "" : "none";
-    });
-}
+    function filterItems() {
+        let input = document.getElementById("search").value.toLowerCase();
+        let blocks = document.querySelectorAll(".category-block");
+
+        blocks.forEach(block => {
+            let rows = block.querySelectorAll("tbody tr");
+            let hasVisibleRow = false;
+
+            rows.forEach(row => {
+                let text = row.querySelector(".item-name").textContent.toLowerCase();
+                if (text.includes(input)) {
+                    row.style.display = "";
+                    hasVisibleRow = true;
+                } else {
+                    row.style.display = "none";
+                }
+            });
+
+            // Hide the whole category if no items match
+            block.style.display = hasVisibleRow ? "" : "none";
+        });
+    }
+
+    function openCategoryModal() { document.getElementById("categoryModal").style.display = "block"; }
+    function closeCategoryModal() { document.getElementById("categoryModal").style.display = "none"; }
+    function toggleAll(state) {
+        document.querySelectorAll('input[name="categories"]').forEach(cb => cb.checked = state);
+    }
 </script>
+
 {% endblock %}

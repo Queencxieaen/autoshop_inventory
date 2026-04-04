@@ -7,7 +7,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-secret-key')
-DEBUG = False  # make sure this is True locally
+DEBUG =True  # make sure this is True locally
 
 if DEBUG:
     SECURE_SSL_REDIRECT = False
@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'widget_tweaks',
     'cloudinary',
     'cloudinary_storage',
+    'mathfilters',
 ]
 
 # -------------------------

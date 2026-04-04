@@ -1,141 +1,147 @@
 {% extends 'inventory/base.html' %}
 {% load humanize %}
+{% block title %}Categories | Autosthetics{% endblock %}
+
 {% block content %}
-<div class="container-fluid py-4 px-4">
+<!-- Lucide Icons -->
+<script src="https://unpkg.com"></script>
 
-    <!-- HEADER WITH GRADIENT -->
-    <div class="card border-0 shadow-sm mb-4 overflow-hidden">
-        <div class="p-4 text-white"
-             style="background: linear-gradient(135deg, #1e40af, #3b82f6);">
-            
-            <div class="d-flex justify-content-between align-items-center">
-                
-                <div>
-                    <h4 class="fw-bold mb-1">Categories</h4>
-                    <p class="small mb-0 opacity-75">
-                        Manage and organize your product categories
-                    </p>
-                </div>
+<style>
+    body { background-color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
 
-                <a href="{% url 'add_category' %}" 
-                   class="btn btn-light text-primary fw-semibold px-4 shadow-sm">
-                    + Add Category
-                </a>
+    .page-header {
+        background: white;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
 
-            </div>
-        </div>
+    .table-container {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        margin: 0 2rem;
+    }
+
+    /* HIGH VISIBILITY BUTTONS */
+    .btn-edit-pro {
+        background-color: #e7f0ff;
+        color: #0d6efd;
+        border: 1px solid #0d6efd30;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 13px;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .btn-edit-pro:hover { background-color: #0d6efd; color: white; }
+
+    .btn-delete-pro {
+        background-color: #fff1f2;
+        color: #e11d48;
+        border: 1px solid #e11d4830;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 13px;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .btn-delete-pro:hover { background-color: #e11d48; color: white; }
+
+    .category-row:hover { background-color: #fbfcfd; }
+</style>
+
+<!-- HEADER -->
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h3 class="fw-bold mb-0">Inventory Categories</h3>
+        <p class="text-muted small mb-0">Organize your shop stock by grouping similar items.</p>
     </div>
+    <a href="{% url 'add_category' %}" class="btn btn-dark rounded-pill px-4 fw-bold">
+        <i data-lucide="plus" class="me-1" size="18"></i> Add New Category
+    </a>
+</div>
 
-    <!-- ALERT -->
+<div class="container-fluid px-4">
+    <!-- MESSAGES -->
     {% if messages %}
         {% for message in messages %}
-            <div class="alert alert-success border-0 shadow-sm d-flex justify-content-between align-items-center mb-3 fade show">
-                <div class="d-flex align-items-center gap-2">
-                    <i class="bi bi-check-circle-fill text-success"></i>
-                    <span class="fw-semibold">{{ message }}</span>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <div class="alert alert-success border-0 shadow-sm rounded-4 mb-4 d-flex justify-content-between align-items-center">
+                <span class="fw-bold small">{{ message }}</span>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="alert"></button>
             </div>
         {% endfor %}
     {% endif %}
 
-    <!-- CARD -->
-    <div class="card border-0 shadow-sm rounded-3">
-        
-        <!-- CARD HEADER -->
-        <div class="card-header bg-white border-0 py-3 px-4">
-            <h6 class="mb-0 fw-semibold">Category List</h6>
-        </div>
+    <!-- DATA TABLE -->
+    <div class="table-container overflow-hidden">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4 py-3 text-muted small fw-bold" style="width: 100px;">INDEX</th>
+                        <th class="py-3 text-muted small fw-bold">CATEGORY NAME</th>
+                        <th class="pe-4 py-3 text-muted small fw-bold text-end" style="width: 250px;">MANAGE</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for category in categories %}
+                    <tr class="category-row border-top">
+                        <td class="ps-4 text-muted fw-bold">#{{ forloop.counter|stringformat:"02d" }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <i data-lucide="folder" class="text-muted" size="16"></i>
+                                <span class="fw-bold text-dark fs-6">{{ category.name }}</span>
+                            </div>
+                        </td>
+                        <td class="pe-4 text-end">
+                            <!-- VISIBLE ACTION BUTTONS -->
+                            <div class="d-flex justify-content-end gap-2">
+                                <a href="{% url 'edit_category' category.id %}" class="btn-edit-pro">
+                                    <i data-lucide="edit-3" size="14"></i> Edit
+                                </a>
 
-        <!-- CARD BODY -->
-        <div class="card-body p-0">
-
-            {% if categories %}
-                <div class="table-responsive">
-                    <table class="table align-middle mb-0">
-
-                        <thead class="bg-light">
-                            <tr>
-                                <th class="text-muted small ps-4">#</th>
-                                <th class="text-muted small">Category Name</th>
-                                <th class="text-muted small text-end pe-4">Actions</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            {% for category in categories %}
-                                <tr class="border-top">
-                                    
-                                    <td class="ps-4 text-muted">
-                                        {{ forloop.counter }}
-                                    </td>
-
-                                    <td>
-                                        <span class="fw-semibold">
-                                            {{ category.name }}
-                                        </span>
-                                    </td>
-
-                                    <td class="text-end pe-4">
-
-                                        <!-- EDIT -->
-                                        <a href="{% url 'edit_category' category.id %}" 
-                                           class="btn btn-sm btn-outline-primary me-1">
-                                            <i class="bi bi-pencil"></i>
-                                        </a>
-
-                                        <!-- DELETE -->
-                                        <form action="{% url 'delete_category' category.id %}" 
-                                              method="POST" 
-                                              style="display:inline;">
-                                            {% csrf_token %}
-                                            <button type="submit" 
-                                                    class="btn btn-sm btn-outline-danger"
-                                                    onclick="return confirm('Are you sure you want to delete this category?');">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </form>
-
-                                    </td>
-
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-
-                    </table>
-                </div>
-
-            {% else %}
-                <!-- EMPTY STATE -->
-                <div class="text-center py-5">
-                    <div class="mb-3">
-                        <i class="bi bi-folder text-muted" style="font-size: 40px;"></i>
-                    </div>
-                    <h6 class="fw-semibold mb-1">No categories yet</h6>
-                    <p class="text-muted small mb-3">
-                        Start organizing your inventory by adding categories
-                    </p>
-                    <a href="{% url 'add_category' %}" class="btn btn-primary px-4">
-                        Add Category
-                    </a>
-                </div>
-            {% endif %}
-
+                                <form action="{% url 'delete_category' category.id %}" method="POST" class="m-0">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-delete-pro" onclick="return confirm('Permanently remove this category?');">
+                                        <i data-lucide="trash-2" size="14"></i> Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center py-5 text-muted">
+                            <i data-lucide="info" size="48" class="mb-3 opacity-25"></i>
+                            <p class="fw-bold mb-0">No categories found. Start by adding one.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
-
 </div>
 
-<!-- AUTO DISMISS ALERT -->
 <script>
-setTimeout(() => {
-    document.querySelectorAll('.alert').forEach(alert => {
-        alert.classList.remove('show');
-    });
-}, 3000);
+    // CRITICAL: This renders the icons. If they are still missing, check your internet connection.
+    lucide.createIcons();
+    
+    // Auto-dismiss alerts
+    setTimeout(() => {
+        document.querySelectorAll('.alert').forEach(alert => {
+            const bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        });
+    }, 3000);
 </script>
-
-<!-- Bootstrap Icons -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-
 {% endblock %}

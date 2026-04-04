@@ -2,6 +2,7 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta
+from django.db import transaction
 
 # =========================
 # Shop Settings
@@ -13,17 +14,13 @@ class ShopSettings(models.Model):
     contact = models.CharField(max_length=50, blank=True)
     low_stock_limit = models.IntegerField(default=5)
 
-    # Appearance
     theme = models.CharField(
         max_length=20,
         choices=[("gold", "Gold"), ("orange", "Orange"), ("light", "Light"), ("dark", "Dark")],
         default="gold"
     )
 
-    # Profile image
     profile_image = models.ImageField(upload_to='profile_images/', blank=True, null=True)
-
-    # Backup trigger flag (optional)
     last_backup = models.DateTimeField(blank=True, null=True)
 
     def __str__(self):
@@ -37,6 +34,9 @@ class Category(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
 
+    class Meta:
+        verbose_name_plural = "Categories"
+
     def __str__(self):
         return self.name
 
@@ -45,19 +45,10 @@ class Category(models.Model):
 # Item
 # =========================
 UNIT_CHOICES = [
-    ('pcs', 'Pieces'),
-    ('kg', 'Kilogram'),
-    ('g', 'Gram'),
-    ('ltr', 'Liter'),
-    ('ml', 'Milliliter'),
-    ('box', 'Box'),
-    ('set', 'Set'),
-    ('pair', 'Pair'),
-    ('pack', 'Pack'),
-    ('bag', 'Bag'),
-    ('can', 'Can'),
-    ('bottle', 'Bottle'),
-    ('unit', 'Unit'),
+    ('pcs', 'Pieces'), ('kg', 'Kilogram'), ('g', 'Gram'),
+    ('ltr', 'Liter'), ('ml', 'Milliliter'), ('box', 'Box'),
+    ('set', 'Set'), ('pair', 'Pair'), ('pack', 'Pack'),
+    ('bag', 'Bag'), ('can', 'Can'), ('bottle', 'Bottle'), ('unit', 'Unit'),
 ]
 
 class Item(models.Model):
@@ -78,14 +69,65 @@ class Item(models.Model):
 class StockMovement(models.Model):
     REASON_CHOICES = [('add', 'Stock In'), ('remove', 'Stock Out'), ('adjust', 'Adjustment')]
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
-    quantity = models.IntegerField()
+    quantity = models.IntegerField() 
     reason = models.CharField(max_length=10, choices=REASON_CHOICES)
     date = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     remarks = models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):
-        return f"{self.item.name} | {self.reason} | {self.quantity}"
+        return f"{self.item.name} | {self.get_reason_display()} | {self.quantity}"
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        
+        if is_new:
+            with transaction.atomic():
+                old_qty = self.item.quantity
+                actual_delta = 0
+
+                # 1. Update the Item Balance based on Reason
+                if self.reason == 'add':
+                    actual_delta = self.quantity
+                    self.item.quantity += self.quantity
+                elif self.reason == 'remove':
+                    actual_delta = -self.quantity
+                    self.item.quantity -= self.quantity
+                elif self.reason == 'adjust':
+                    # Calculate difference for the snapshot columns
+                    actual_delta = self.quantity - old_qty
+                    self.item.quantity = self.quantity
+                
+                self.item.save()
+
+                # 2. Daily Snapshot Synchronization
+                from django.utils.timezone import localdate
+                today = localdate()
+                snapshot, _ = DailySnapshot.objects.get_or_create(date=today)
+                
+                # Determine how much to increment IN and OUT columns
+                change_in = actual_delta if actual_delta > 0 else 0
+                change_out = abs(actual_delta) if actual_delta < 0 else 0
+
+                item_snap, created = DailyItemSnapshot.objects.get_or_create(
+                    snapshot=snapshot,
+                    item=self.item,
+                    defaults={
+                        'beginning_quantity': old_qty,
+                        'stock_in': change_in,
+                        'stock_out': change_out,
+                        'ending_quantity': self.item.quantity
+                    }
+                )
+
+                if not created:
+                    # Update existing snapshot totals
+                    item_snap.stock_in += change_in
+                    item_snap.stock_out += change_out
+                    item_snap.ending_quantity = self.item.quantity
+                    item_snap.save()
+
+        super().save(*args, **kwargs)
 
 
 # =========================
@@ -107,11 +149,13 @@ class DailyItemSnapshot(models.Model):
     stock_out = models.IntegerField()
     ending_quantity = models.IntegerField()
 
+    def __str__(self):
+        return f"{self.item.name} - {self.snapshot.date}"
+
 
 # =========================
 # Password Reset OTP
 # =========================
-
 class PasswordResetOTP(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     code = models.CharField(max_length=6)
@@ -119,7 +163,7 @@ class PasswordResetOTP(models.Model):
     expired = models.BooleanField(default=False)
 
     def is_valid(self):
-        """Check if OTP is still valid (10 minutes)"""
+        """Valid for 10 minutes"""
         return not self.expired and timezone.now() <= self.created_at + timedelta(minutes=10)
 
     def __str__(self):

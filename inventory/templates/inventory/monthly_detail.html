@@ -1,132 +1,224 @@
 {% extends "inventory/base.html" %}
-
-{% block title %}
-Inventory Reports
-{% endblock %}
+{% block title %}Archive | {{ month }} {{ year }}{% endblock %}
 
 {% block content %}
+<!-- Lucide Icons -->
+<script src="https://unpkg.com"></script>
 
-<!-- RETURN BUTTON -->
-<a href="{% url 'reports' %}" class="btn btn-outline-secondary btn-sm mb-3">
-    ← Return to Reports
-</a>
+<style>
+    :root {
+        --audit-teal: #0f766e;
+        --border-subtle: #f1f5f9;
+        --studio-amber: #f59e0b;
+        --studio-dark: #0f172a;
+    }
 
-<!-- HEADER -->
-<div class="p-4 rounded-4 text-white mb-4"
-     style="background: linear-gradient(135deg, #0f766e, #14b8a6);
-            box-shadow: 0 10px 25px rgba(15,118,110,0.2);">
+    body { background-color: #f8fafc; font-family: 'Inter', sans-serif; color: #1e293b; }
 
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+    /* Elegant Header */
+    .audit-header {
+        background: white;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 2.5rem 0;
+        margin-bottom: 2rem;
+    }
 
+    /* Floating Action Bar */
+    .action-bar {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 100px;
+        padding: 8px 8px 8px 24px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    }
+
+    .filter-input { border: none; outline: none; width: 60px; font-size: 14px; font-weight: 700; background: transparent; }
+
+    /* Category Cards (Ledger) */
+    .category-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+        overflow: hidden;
+    }
+    .category-label {
+        background: #f8fafc;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e2e8f0;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 12px;
+        color: #64748b;
+    }
+
+    /* Refined Table */
+    .audit-table { margin-bottom: 0; font-size: 14px; }
+    .audit-table thead th { background: transparent; border-bottom: 2px solid #f1f5f9; color: #94a3b8; font-weight: 600; padding: 1rem 1.5rem; font-size: 12px; }
+    .audit-table td { padding: 1.2rem 1.5rem; vertical-align: middle; border-bottom: 1px solid #f8fafc; }
+
+    /* Modal Styling */
+    .custom-modal {
+        display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+        width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(8px);
+    }
+    .modal-content-box {
+        background: white; width: 450px; margin: 10vh auto; border-radius: 24px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid rgba(255,255,255,0.2);
+    }
+    .modal-header { padding: 20px 24px; border-bottom: 1px solid #f1f5f9; }
+    .modal-body { padding: 24px; max-height: 450px; overflow-y: auto; }
+    
+    .category-item {
+        padding: 12px; border-radius: 12px; transition: background 0.2s; cursor: pointer;
+        display: flex; align-items: center; gap: 12px; margin-bottom: 4px; text-decoration: none;
+    }
+    .category-item:hover { background: #f8fafc; color: inherit; }
+    .category-item input { width: 18px; height: 18px; accent-color: var(--studio-amber); }
+
+    .btn-studio { border-radius: 100px; font-weight: 700; font-size: 13px; padding: 10px 24px; transition: all 0.3s; }
+    .btn-studio-dark { background: var(--studio-dark); color: white; border: none; }
+    .btn-studio-amber { background: var(--studio-amber); color: white; border: none; }
+</style>
+
+<div class="audit-header">
+    <div class="container px-lg-5 d-flex justify-content-between align-items-center flex-wrap gap-4">
         <div>
-            <h3 class="fw-bold mb-1">
-                Inventory Reports
-            </h3>
-
-            {% if start_date and end_date %}
-                <p class="mb-0 small opacity-75">
-                    Showing reports from {{ start_date }} to {{ end_date }}
-                </p>
-            {% else %}
-                <p class="mb-0 small opacity-75">
-                    Select a date range to generate reports
-                </p>
-            {% endif %}
+            <h5 class="text-uppercase fw-bold text-muted mb-1 small tracking-widest">Archive Ledger</h5>
+            <h2 class="fw-black mb-0">{{ month }}/{{ year }}</h2>
         </div>
 
-        <div class="d-flex gap-2 flex-wrap">
+        <div class="d-flex gap-3 align-items-center">
+            <form method="GET" class="action-bar">
+                <i data-lucide="calendar" class="text-muted" size="18"></i>
+                <input type="number" name="year" class="filter-input" value="{{ year }}" max="{% now 'Y' %}">
+                <span class="text-muted opacity-25">/</span>
+                <input type="number" name="month" class="filter-input" value="{{ month }}" min="1" max="12">
+                <button type="submit" class="btn btn-dark rounded-circle p-2 me-1 border-0">
+                    <i data-lucide="filter" size="14"></i>
+                </button>
+            </form>
 
-            <a href="{% url 'weekly_summary' %}" class="btn btn-outline-light">
-                Weekly Summary
-            </a>
-
-            {% if year and month %}
-            <a href="{% url 'monthly_summary_pdf' year month %}"
-               class="btn btn-danger">
-                Export Monthly PDF
-            </a>
-            {% else %}
-            <button class="btn btn-danger" disabled>
-                Export Monthly PDF
+            {% if snapshots %}
+            <!-- WEEKLY SUMMARY BUTTON TRIGGERS THE MODAL -->
+            <button class="btn btn-studio btn-studio-dark" onclick="openModal('weekModal')">
+                <i data-lucide="calendar-days" class="me-1 d-inline" size="16"></i> Weekly Summary
             </button>
+            
+            <!-- MONTHLY SUMMARY BUTTON (DIRECT EXPORT) -->
+            <form action="{% url 'monthly_summary_pdf' year month %}" method="GET" style="display:inline;">
+                {% for category in categories %}
+                <input type="hidden" name="categories" value="{{ category.id }}">
+                {% endfor %}
+                <button type="submit" class="btn btn-studio btn-studio-amber">
+                    <i data-lucide="file-text" class="me-1 d-inline" size="16"></i> Monthly Summary
+                </button>
+            </form>
             {% endif %}
-
         </div>
     </div>
 </div>
 
-<!-- DATE RANGE FILTER -->
-<div class="card shadow-sm border-0 mb-4">
-    <div class="card-body">
+<div class="container px-lg-5">
+    <div class="category-card">
+        <div class="category-label d-flex justify-content-between align-items-center">
+            <span>Period Records</span>
+            <span class="badge bg-white text-muted border fw-normal">{{ snapshots|length }} Days Logged</span>
+        </div>
 
-        <h6 class="fw-semibold mb-3">Search by Date Range</h6>
-
-        <form method="GET">
-            <div class="row g-3">
-
-                <!-- Start Date -->
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Start Date</label>
-                    <input type="date"
-                           name="start_date"
-                           class="form-control rounded-3"
-                           value="{{ start_date|default:'' }}"
-                           required>
-                </div>
-
-                <!-- End Date -->
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">End Date</label>
-                    <input type="date"
-                           name="end_date"
-                           class="form-control rounded-3"
-                           value="{{ end_date|default:'' }}"
-                           required>
-                </div>
-
-                <!-- Submit -->
-                <div class="col-md-4 d-flex align-items-end">
-                    <button type="submit"
-                            class="btn w-100 text-white rounded-3"
-                            style="background: #14b8a6;">
-                        Generate Report
-                    </button>
-                </div>
-
-            </div>
-        </form>
-
+        <div class="table-responsive">
+            <table class="table audit-table">
+                <thead>
+                    <tr>
+                        <th>DATE RECORDED</th>
+                        <th class="text-center">ENTRY COUNT</th>
+                        <th class="text-end">ACTION</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for snapshot in snapshots %}
+                    <tr>
+                        <td class="fw-bold text-dark">
+                            <i data-lucide="calendar" class="me-2 text-muted" size="14"></i>
+                            {{ snapshot.date|date:"l, F d, Y" }}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-light text-muted border fw-medium px-3 py-1 rounded-pill">
+                                {{ snapshot.details.count }} Items
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'daily_detail' snapshot.date|date:'Y' snapshot.date|date:'m' snapshot.date|date:'d' %}" class="btn btn-sm btn-light border rounded-pill px-3 fw-bold">
+                                View Details
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center py-5 text-muted">
+                            <i data-lucide="package-search" size="48" class="mb-3 opacity-25"></i>
+                            <h5 class="text-muted">No records found.</h5>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
-<!-- DATE LIST -->
-<div class="card shadow-sm border-0 mb-4">
-    <div class="card-body">
-
-        <h6 class="fw-semibold mb-3">Available Report Dates</h6>
-
-        {% if snapshots %}
-            <div class="list-group">
-                {% for snapshot in snapshots %}
-                    <a href="{% url 'daily_detail' snapshot.date.year snapshot.date.month snapshot.date.day %}"
-                       class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-
-                        <span>{{ snapshot.date|date:"F d, Y" }}</span>
-
-                        <span class="badge bg-light text-dark">
-                            View
-                        </span>
-
-                    </a>
-                {% endfor %}
+<!-- WEEKLY SUMMARY MODAL (THE LIST OF WEEKS) -->
+<div id="weekModal" class="custom-modal">
+    <div class="modal-content-box">
+        <div class="modal-header d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold mb-0">Select Audit Week</h5>
+            <button onclick="closeModal('weekModal')" class="btn-close shadow-none"></button>
+        </div>
+        <div class="modal-body">
+            <p class="small text-muted mb-4">Choose the specific week to generate the PDF summary.</p>
+            <div class="category-list">
+                <a href="{% url 'weekly_summary_pdf' %}?year={{ year }}&month={{ month }}&week=1" class="category-item">
+                    <i data-lucide="calendar" size="18" class="text-muted"></i>
+                    <span class="small fw-semibold text-dark">Week 01 (01-07)</span>
+                </a>
+                <a href="{% url 'weekly_summary_pdf' %}?year={{ year }}&month={{ month }}&week=2" class="category-item">
+                    <i data-lucide="calendar" size="18" class="text-muted"></i>
+                    <span class="small fw-semibold text-dark">Week 02 (08-14)</span>
+                </a>
+                <a href="{% url 'weekly_summary_pdf' %}?year={{ year }}&month={{ month }}&week=3" class="category-item">
+                    <i data-lucide="calendar" size="18" class="text-muted"></i>
+                    <span class="small fw-semibold text-dark">Week 03 (15-21)</span>
+                </a>
+                <a href="{% url 'weekly_summary_pdf' %}?year={{ year }}&month={{ month }}&week=4" class="category-item">
+                    <i data-lucide="calendar" size="18" class="text-muted"></i>
+                    <span class="small fw-semibold text-dark">Week 04 (22-28)</span>
+                </a>
+                {% if num_days > 28 %}
+                <a href="{% url 'weekly_summary_pdf' %}?year={{ year }}&month={{ month }}&week=5" class="category-item">
+                    <i data-lucide="calendar" size="18" class="text-muted"></i>
+                    <span class="small fw-semibold text-dark">Week 05 (29-{{ num_days }})</span>
+                </a>
+                {% endif %}
             </div>
-        {% else %}
-            <div class="alert alert-info mb-0">
-                No reports found for the selected period.
+            <div class="mt-4">
+                <button type="button" class="btn btn-light w-100 rounded-pill fw-bold" onclick="closeModal('weekModal')">Cancel</button>
             </div>
-        {% endif %}
-
+        </div>
     </div>
 </div>
 
+<script>
+    lucide.createIcons();
+    function openModal(id) { document.getElementById(id).style.display = 'block'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    window.onclick = function(event) {
+        if (event.target.classList.contains('custom-modal')) {
+            event.target.style.display = 'none';
+        }
+    }
+</script>
 {% endblock %}

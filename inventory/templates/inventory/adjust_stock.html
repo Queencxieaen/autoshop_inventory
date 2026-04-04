@@ -1,153 +1,100 @@
 {% extends "inventory/base.html" %}
 {% load humanize %}
-{% load custom_filters %}
 
-{% block title %}Adjust Stock{% endblock %}
+{% block title %}Stock Adjustment | Autosthetics{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<script src="https://unpkg.com"></script>
 
-    <!-- Header -->
-    <div class="p-3 rounded-4 text-white mb-4"
-         style="background: linear-gradient(135deg, #f59e0b, #f97316);">
-        <h4 class="fw-bold mb-1">⚙️ Adjust Stock</h4>
-        <p class="mb-0 small opacity-75">Manually increase or decrease product inventory</p>
+<style>
+    :root { --terminal-dark: #0f172a; --accent-amber: #f59e0b; --border-subtle: #f1f5f9; }
+    body { background-color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
+    .terminal-header { background: white; border-bottom: 1px solid var(--border-subtle); padding: 1.5rem 2rem; margin-bottom: 2rem; }
+    .control-panel { background: white; border: 1px solid var(--border-subtle); border-radius: 20px; padding: 2rem; height: fit-content; position: sticky; top: 2rem; }
+    .ledger-card { background: white; border: 1px solid var(--border-subtle); border-radius: 20px; overflow: hidden; margin-bottom: 1.5rem; }
+    .form-label-caps { font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; display: block; }
+    .input-terminal { border: 2px solid #f1f5f9; border-radius: 12px; padding: 12px 16px; font-size: 14px; width: 100%; background: #f8fafc; outline: none; }
+    .input-terminal:focus { border-color: var(--accent-amber); background: white; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.05); }
+    .btn-action { background: var(--terminal-dark); color: white; border: none; padding: 16px; border-radius: 14px; font-weight: 800; width: 100%; transition: all 0.3s; }
+    .btn-action:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15); color: white; }
+    .locked-indicator { background: rgba(245, 158, 11, 0.05); border: 2px dashed var(--accent-amber); color: var(--accent-amber); border-radius: 12px; padding: 12px 16px; }
+</style>
+
+<div class="terminal-header d-flex justify-content-between align-items-center shadow-sm">
+    <div class="d-flex align-items-center gap-3">
+        <div class="p-2 bg-warning bg-opacity-10 text-warning rounded-3"><i data-lucide="refresh-cw"></i></div>
+        <div><h4 class="fw-black mb-0 text-uppercase">Sync Terminal</h4><p class="text-muted small mb-0 fw-bold">Manual reconciliation protocol</p></div>
     </div>
+</div>
 
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-        <div class="p-4">
-            <div class="row g-4">
-   
-                <!-- LEFT: Stock Form -->
-                <div class="col-lg-4">
-                    <div class="bg-light p-4 rounded-4">
-                        <form method="POST">
-                            {% csrf_token %}
-
-                            <!-- Item -->
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold">Item</label>
-                                {% if selected_item %}
-                                    <div class="form-control rounded-3 bg-light">
-                                        {{ selected_item.name }} ({{ selected_item.quantity }})
-                                    </div>
-                                    <input type="hidden" name="item" value="{{ selected_item.id }}">
-                                {% else %}
-                                    <select name="item" class="form-select rounded-3" required>
-                                        <option value="">Select item</option>
-                                        {% for item in items %}
-                                            <option value="{{ item.id }}">{{ item.name }} ({{ item.quantity }})</option>
-                                        {% endfor %}
-                                    </select>
-                                {% endif %}
+<div class="container-fluid px-4 px-lg-5 pb-5">
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="control-panel shadow-sm">
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label class="form-label-caps">Target Product</label>
+                        {% if selected_item %}
+                            <!-- PRE-SELECTED STATE -->
+                            <div class="locked-indicator d-flex justify-content-between align-items-center">
+                                <div><i data-lucide="lock" size="14" class="me-1"></i><span class="fw-bold">{{ selected_item.name }}</span></div>
+                                <span class="badge bg-warning bg-opacity-20 text-warning rounded-pill px-2">Bal: {{ selected_item.quantity }}</span>
                             </div>
-
-                            <!-- Quantity -->
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold">Quantity</label>
-                                <input type="number" name="quantity" min="1" class="form-control rounded-3" required>
-                            </div>
-
-                            <!-- Action -->
-                            <div class="mb-4">
-                                <label class="form-label fw-semibold">Action</label>
-                                <select name="reason" class="form-select rounded-3" required>
-                                    <option value="add">➕ Stock In</option>
-                                    <option value="remove">➖ Stock Out</option>
-                                </select>
-                            </div>
-
-                            <button class="btn btn-warning w-100 rounded-3 fw-semibold">Update Stock</button>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- RIGHT: Snapshot & Movements -->
-                <div class="col-lg-8">
-
-                    <!-- Daily Stock Snapshot -->
-                    <div class="card border-0 shadow-sm rounded-4 mb-4">
-                        <div class="card-body">
-                            <h6 class="fw-bold mb-3">Today's Stock Snapshot</h6>
-                            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
-                                <table class="table table-bordered align-middle mb-0">
-                                    <thead class="bg-white sticky-top shadow-sm">
-                                        <tr class="text-muted small">
-                                            <th>Item</th>
-                                            <th>Beginning</th>
-                                            <th>Stock In</th>
-                                            <th>Stock Out</th>
-                                            <th>Ending</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for snapshot in today_snapshot %}
-                                        <tr>
-                                            <td>{{ snapshot.item.name }}</td>
-                                            <td>{{ snapshot.beginning_quantity }}</td>
-                                            <td>{{ snapshot.stock_in }}</td>
-                                            <td>{{ snapshot.stock_out }}</td>
-                                            <td>{{ snapshot.ending_quantity }}</td>
-                                        </tr>
-                                        {% empty %}
-                                        <tr>
-                                            <td colspan="5" class="text-center text-muted py-4">
-                                                No stock snapshot for today.
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                            <input type="hidden" name="item" value="{{ selected_item.id }}">
+                            <p class="text-muted mt-2 small" style="font-size: 10px;">Target selection confirmed from alerts page.</p>
+                        {% else %}
+                            <!-- MANUAL SELECTION -->
+                            <select name="item" class="input-terminal" required>
+                                <option value="" disabled selected>Select an item...</option>
+                                {% for item in items %}
+                                    <option value="{{ item.id }}">{{ item.name }} (Bal: {{ item.quantity }})</option>
+                                {% endfor %}
+                            </select>
+                        {% endif %}
                     </div>
 
-                    <!-- Recent Stock Movements -->
-                    <div class="card border-0 shadow-sm rounded-4">
-                        <div class="card-body">
-                            <h6 class="fw-bold mb-3">Recent Stock Movements</h6>
-                            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
-                                <table class="table table-borderless align-middle mb-0">
-                                    <thead class="bg-white sticky-top shadow-sm">
-                                        <tr class="text-muted small">
-                                            <th>Date</th>
-                                            <th>Item</th>
-                                            <th class="text-center">Qty</th>
-                                            <th class="text-center">User</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for move in movements %}
-                                        <tr class="border-bottom">
-                                            <td>{{ move.date|date:"M d, Y H:i" }}</td>
-                                            <td>{{ move.item.name }}</td>
-                                            <td class="text-center fw-bold">
-                                                {% if move.reason == "add" %}
-                                                    <span class="text-success">+{{ move.quantity }}</span>
-                                                {% else %}
-                                                    <span class="text-danger">-{{ move.quantity }}</span>
-                                                {% endif %}
-                                            </td>
-                                            <td class="text-center">{{ move.user.username }}</td>
-                                        </tr>
-                                        {% empty %}
-                                        <tr>
-                                            <td colspan="4" class="text-center text-muted py-4">
-                                                No stock movements yet.
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                    <div class="mb-4">
+                        <label class="form-label-caps">Quantity</label>
+                        <input type="number" name="quantity" min="1" class="input-terminal" placeholder="Enter amount..." required>
                     </div>
 
-                </div>
+                    <div class="mb-4">
+                        <label class="form-label-caps">Operation Mode</label>
+                        <select name="reason" class="input-terminal" required>
+                            <option value="add">STOCK IN (+) </option>
+                            <option value="remove">STOCK OUT (-) </option>
+                            <option value="adjust">PHYSICAL ADJUSTMENT (=) </option>
+                        </select>
+                    </div>
 
+                    <button type="submit" class="btn-action">COMMIT SYNCHRONIZATION</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="ledger-card shadow-sm mb-4">
+                <div class="p-3 border-bottom"><h6 class="fw-bold mb-0 small text-uppercase">Today's Ledger Status</h6></div>
+                <table class="table mb-0">
+                    <thead><tr><th class="ps-4">Item</th><th class="text-center">Start</th><th class="text-center">In</th><th class="text-center">Out</th><th class="text-end pe-4">Balance</th></tr></thead>
+                    <tbody>
+                        {% for snapshot in today_ledger %}
+                        <tr>
+                            <td class="ps-4 fw-bold">{{ snapshot.item.name }}</td>
+                            <td class="text-center text-muted">{{ snapshot.beginning_quantity }}</td>
+                            <td class="text-center text-success fw-bold">{{ snapshot.stock_in }}</td>
+                            <td class="text-center text-danger fw-bold">{{ snapshot.stock_out }}</td>
+                            <td class="text-end pe-4"><span class="badge bg-dark px-3 py-2">{{ snapshot.ending_quantity }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center py-5 text-muted small">No transactions today.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
-
 </div>
+<script>lucide.createIcons();</script>
 {% endblock %}

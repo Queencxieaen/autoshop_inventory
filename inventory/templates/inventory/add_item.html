@@ -1,113 +1,194 @@
 {% extends "inventory/base.html" %}
 {% load humanize %}
+{% block title %}Add New SKU | Autosthetics{% endblock %}
+
 {% block content %}
+<!-- Lucide Icons -->
+<script src="https://unpkg.com"></script>
 
-<div class="container py-4">
+<style>
+    :root {
+        --glass-bg: rgba(255, 255, 255, 0.9);
+        --glass-border: rgba(231, 234, 243, 0.7);
+        --primary-blue: #1e3c72;
+    }
 
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    body { background-color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+    /* Floating Header Style */
+    .form-header {
+        background: white;
+        border-bottom: 1px solid var(--glass-border);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    /* Glass Card */
+    .form-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--glass-border);
+        border-radius: 24px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.03);
+        max-width: 900px;
+        margin: 0 auto 4rem auto;
+    }
+
+    .card-inner { padding: 2.5rem; }
+
+    /* Modern Inputs */
+    .form-label {
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+        margin-bottom: 8px;
+    }
+
+    .form-control, .form-select {
+        border-radius: 12px;
+        padding: 12px 16px;
+        border: 1.5px solid var(--glass-border);
+        background: #fcfdfe;
+        font-size: 14px;
+        transition: all 0.2s;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: var(--primary-blue);
+        background: white;
+        box-shadow: 0 0 0 4px rgba(30, 60, 114, 0.05);
+        outline: none;
+    }
+
+    /* Action Buttons */
+    .btn-save {
+        background: var(--primary-blue);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 12px;
+        font-weight: 700;
+        transition: all 0.2s;
+    }
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(30, 60, 114, 0.2);
+        color: white;
+    }
+
+    .input-group-text {
+        background: #f1f5f9;
+        border: 1.5px solid var(--glass-border);
+        border-right: none;
+        border-radius: 12px 0 0 12px;
+        color: #64748b;
+        font-weight: bold;
+    }
+</style>
+
+<div class="form-header shadow-sm">
+    <div class="container-fluid px-lg-5 d-flex justify-content-between align-items-center">
         <div>
-            <h1 class="fw-bold text-dark mb-1">Add New Item</h1>
-            <p class="text-muted mb-0">Create inventory items professionally</p>
+            <h4 class="fw-bold mb-0">New SKU Registration</h4>
+            <p class="text-muted small mb-0">Expand your inventory database</p>
         </div>
-        <a href="{% url 'all_items' %}" class="btn btn-outline-secondary">
-            ← Back to Inventory
+        <a href="{% url 'all_items' %}" class="btn btn-light border rounded-pill px-4 btn-sm fw-bold">
+            <i data-lucide="arrow-left" class="me-1 d-inline" size="16"></i> Back to Ledger
         </a>
     </div>
+</div>
 
+<div class="container">
     {% if messages %}
         {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+            <div class="alert alert-{{ message.tags }} border-0 shadow-sm rounded-4 mb-4">
                 {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         {% endfor %}
     {% endif %}
 
-    <!-- Form Card -->
-    <div class="card shadow-sm border-0">
-        <div class="card-header bg-dark text-white">
-            <h5 class="mb-0">Item Details</h5>
-        </div>
-
-        <div class="card-body p-4">
-
+    <div class="form-card">
+        <div class="card-inner">
             <form method="POST">
                 {% csrf_token %}
-
-                <div class="row g-3">
-
+                
+                <div class="row g-4">
                     <!-- Item Name -->
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Item Name</label>
-                        {{ form.name }}
+                    <div class="col-12">
+                        <label class="form-label">Product Name / Title</label>
+                        <div class="position-relative">
+                            {{ form.name }}
+                        </div>
                         {% for error in form.name.errors %}
-                            <div class="text-danger small">{{ error }}</div>
+                            <p class="text-danger x-small mt-1 mb-0">{{ error }}</p>
                         {% endfor %}
                     </div>
 
                     <!-- Category -->
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Category</label>
+                        <label class="form-label">Classification</label>
                         {{ form.category }}
                     </div>
 
                     <!-- Unit -->
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Unit</label>
+                        <label class="form-label">Unit of Measure</label>
                         {{ form.unit }}
                     </div>
 
                     <!-- Price -->
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Unit Price (₱)</label>
-                        {{ form.price }}
+                        <label class="form-label">Price per Unit (PHP)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">₱</span>
+                            {{ form.price }}
+                        </div>
                     </div>
 
+                    <!-- Informational Note -->
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="p-3 bg-light rounded-3 w-100 border border-dashed">
+                            <p class="small text-muted mb-0">
+                                <i data-lucide="info" size="14" class="me-1"></i>
+                                Quantity is managed via <strong>Stock Adjustments</strong> after creation.
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Save Button -->
-                <div class="mt-4 text-end">
-                    <button type="submit" class="btn btn-dark px-4">
-                        Save Item
+                <hr class="my-5 opacity-10">
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <p class="text-muted small mb-0">Ensure all fields are accurate before saving.</p>
+                    <button type="submit" class="btn btn-save px-5">
+                        <i data-lucide="check-circle" class="me-2 d-inline" size="18"></i>Register Item
                     </button>
                 </div>
-
             </form>
-
         </div>
     </div>
-
 </div>
 
-<!-- Form Styling -->
-<style>
-    /* Inputs */
-    .form-control, select {
-        border-radius: 10px;
-        padding: 10px;
-        border: 1px solid #ced4da;
-    }
-
-    .form-control:focus {
-        border-color: #343a40;
-        box-shadow: none;
-    }
-
-    /* Card */
-    .card {
-        border-radius: 14px;
-        transition: all 0.2s ease;
-    }
-
-    .card:hover {
-        box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-    }
-
-    /* Labels */
-    .form-label {
-        font-size: 0.95rem;
-    }
-</style>
-
+<script>
+    lucide.createIcons();
+    
+    // Add Bootstrap classes to Django form widgets automatically
+    document.addEventListener("DOMContentLoaded", function() {
+        const inputs = document.querySelectorAll('input, select');
+        inputs.forEach(input => {
+            if (input.type !== 'checkbox' && input.type !== 'radio') {
+                input.classList.add('form-control');
+                if (input.tagName === 'SELECT') {
+                    input.classList.remove('form-control');
+                    input.classList.add('form-select');
+                }
+            }
+        });
+    });
+</script>
 {% endblock %}

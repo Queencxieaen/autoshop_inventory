@@ -1,57 +1,206 @@
 {% extends 'inventory/auth_base.html' %}
 {% load static %}
-{% block title %}Password Reset - Autosthetics{% endblock %}
+
+{% block title %}Reset Access | Autosthetics{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-center align-items-center" style="min-height: 80vh;">
-    <div class="card shadow-sm p-4" style="width: 400px;">
-        <h4 class="text-center mb-4">Reset Password</h4>
+<!-- Google Fonts & Lucide Icons -->
+<link href="https://fonts.googleapis.com" rel="stylesheet">
+<script src="https://unpkg.com"></script>
 
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
+<style>
+    :root {
+        --studio-amber: #f59e0b;
+        --studio-dark: #0f172a;
+        --ui-border: #f1f5f9;
+    }
 
-        {% if error %}
-            <div class="alert alert-danger">{{ error }}</div>
-        {% endif %}
+    body, html {
+        height: 100%;
+        margin: 0;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background-color: #ffffff;
+        overflow: hidden;
+    }
 
-   
-        <form method="POST" id="otp-request-form">
-            {% csrf_token %}
-            <div class="mb-3">
-                <label for="email" class="form-label">Enter your email</label>
-                <input type="email" name="email" id="email" class="form-control" required>
+    /* --- SPLIT LAYOUT --- */
+    .split-container { display: flex; height: 100vh; width: 100%; }
+
+    .visual-side {
+        flex: 1.2;
+        position: relative;
+        background: url('{% static "images/login_bg.jpg" %}') center/cover no-repeat;
+        display: none; 
+        animation: imageReveal 1.2s cubic-bezier(0.7, 0, 0.3, 1) forwards;
+    }
+
+    @media (min-width: 992px) { .visual-side { display: block; } }
+
+    .visual-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to bottom, rgba(15, 23, 42, 0.1), rgba(15, 23, 42, 0.8));
+        padding: 60px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+    }
+
+    .form-side {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        background: white;
+    }
+
+    .reset-box { width: 100%; max-width: 400px; }
+
+    /* --- TYPOGRAPHY & INPUTS --- */
+    .brand-title {
+        font-weight: 800;
+        font-size: 2.2rem;
+        letter-spacing: -0.05em;
+        color: var(--studio-dark);
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
+
+    .form-label {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: #94a3b8;
+        margin-bottom: 10px;
+        display: block;
+    }
+
+    .custom-input {
+        background: #f8fafc;
+        border: 2px solid #f1f5f9;
+        border-radius: 16px;
+        padding: 14px 18px;
+        width: 100%;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--studio-dark);
+        transition: all 0.3s ease;
+    }
+
+    .custom-input:focus {
+        background: white;
+        border-color: var(--studio-dark);
+        outline: none;
+        box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.05);
+    }
+
+    .btn-studio {
+        background: var(--studio-dark);
+        color: white;
+        border: none;
+        border-radius: 16px;
+        padding: 18px;
+        width: 100%;
+        font-weight: 800;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        cursor: pointer;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .btn-studio:hover:not(:disabled) {
+        transform: translateY(-3px);
+        box-shadow: 0 15px 30px rgba(15, 23, 42, 0.2);
+    }
+
+    .btn-studio:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* --- ANIMATIONS --- */
+    @keyframes imageReveal { from { transform: scale(1.1); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .stagger { opacity: 0; animation: revealUp 0.8s cubic-bezier(0.2, 1, 0.3, 1) forwards; }
+    .s-1 { animation-delay: 0.4s; }
+    .s-2 { animation-delay: 0.5s; }
+    .s-3 { animation-delay: 0.6s; }
+
+    @keyframes revealUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+
+<div class="split-container">
+    <!-- LEFT SIDE -->
+    <div class="visual-side">
+        <div class="visual-overlay">
+            <h1 class="text-white fw-black m-0 stagger s-1" style="font-size: 3.8rem; line-height: 0.95; letter-spacing: -0.06em; margin:0;">Security <br>Protocol.</h1>
+            <p class="text-white opacity-50 mt-4 lead stagger s-2">Verifying credentials for Autosthetics Studio access.</p>
+        </div>
+    </div>
+
+    <!-- RIGHT SIDE -->
+    <div class="form-side">
+        <div class="reset-box">
+            <div class="mb-5 stagger s-1">
+                <a href="{% url 'login' %}" class="text-decoration-none d-inline-flex align-items-center text-muted small fw-bold mb-3">
+                    <i data-lucide="arrow-left" size="14" class="me-2"></i> BACK TO LOGIN
+                </a>
+                <h2 class="brand-title">Reset Access.</h2>
+                <p class="text-muted small fw-bold text-uppercase tracking-widest" style="font-size: 10px;">Identity Verification</p>
             </div>
 
-            <button type="submit" class="btn btn-primary w-100" id="send-otp-btn">Send OTP</button>
-        </form>
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} border-0 rounded-4 small p-3 mb-4 stagger s-2">
+                        <i data-lucide="info" class="me-2 d-inline-block" size="16"></i> {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="POST" id="otp-request-form" class="stagger s-2">
+                {% csrf_token %}
+                <div class="mb-4">
+                    <label class="form-label">Registered Email</label>
+                    <input type="email" name="email" id="email" class="custom-input" placeholder="e.g. admin@autosthetics.com" required>
+                </div>
+
+                <button type="submit" class="btn-studio mb-3" id="send-otp-btn">
+                    Send Security Code <i data-lucide="send" size="18"></i>
+                </button>
+            </form>
+
+            <p class="text-center text-muted stagger s-3" style="font-size: 11px; margin-top: 5rem; font-weight: 700;">
+                &copy; {% now "Y" %} AUTOSTHETICS STUDIO &bull; INTERNAL LEDGER
+            </p>
+        </div>
     </div>
 </div>
 
 <script>
-const sendBtn = document.getElementById('send-otp-btn');
+    lucide.createIcons();
 
-document.getElementById('otp-request-form').addEventListener('submit', function() {
-    // Disable button after sending
-    sendBtn.disabled = true;
-    let countdown = 60; // 60 seconds countdown
-    sendBtn.textContent = `Resend OTP in ${countdown}s`;
+    const sendBtn = document.getElementById('send-otp-btn');
+    const form = document.getElementById('otp-request-form');
 
-    const interval = setInterval(() => {
-        countdown--;
-        sendBtn.textContent = `Resend OTP in ${countdown}s`;
-        if (countdown <= 0) {
-            clearInterval(interval);
-            sendBtn.disabled = false;
-            sendBtn.textContent = "Send OTP";
-        }
-    }, 1000);
-});
+    form.addEventListener('submit', function() {
+        sendBtn.disabled = true;
+        let countdown = 60;
+        sendBtn.innerHTML = `Wait ${countdown}s <i data-lucide="loader" class="spin" size="18"></i>`;
+        lucide.createIcons();
+
+        const interval = setInterval(() => {
+            countdown--;
+            sendBtn.innerHTML = `Wait ${countdown}s <i data-lucide="loader" class="spin" size="18"></i>`;
+            lucide.createIcons();
+            
+            if (countdown <= 0) {
+                clearInterval(interval);
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = `Send Security Code <i data-lucide="send" size="18"></i>`;
+                lucide.createIcons();
+            }
+        }, 1000);
+    });
 </script>
-
 {% endblock %}

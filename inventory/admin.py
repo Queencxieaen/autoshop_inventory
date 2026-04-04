@@ -1,5 +1,11 @@
 from django.contrib import admin
-from .models import Item, Category, StockMovement, ShopSettings
+from .models import Item, Category, StockMovement, ShopSettings, DailySnapshot, DailyItemSnapshot
+
+
+admin.site.register(DailySnapshot)
+
+
+admin.site.register(DailyItemSnapshot)
 
 @admin.register(Item)
 class ItemAdmin(admin.ModelAdmin):

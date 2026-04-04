@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page { size: A4; margin: 0.6in; }
+        body { font-family: 'Helvetica', 'Arial', sans-serif; color: #1e293b; font-size: 11px; margin: 0; }
+        .header { border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 20px; }
+        .shop-name { font-size: 22px; font-weight: bold; color: #0f172a; margin: 0; text-transform: uppercase; }
+        .report-label { background: #0f172a; color: white; padding: 10px; border-radius: 6px; text-align: center; margin: 20px 0; font-weight: bold; font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { text-align: left; color: #94a3b8; font-size: 9px; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; padding: 10px 8px; }
+        td { padding: 10px 8px; border-bottom: 1px solid #f1f5f9; }
+        .cat-head { font-weight: bold; color: #f59e0b; margin-top: 20px; font-size: 10px; text-transform: uppercase; border-left: 4px solid #f59e0b; padding-left: 8px; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .low-stock { color: #e11d48; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 class="shop-name">{{ shop_name }}</h1>
+        <p style="color: #64748b; margin: 4px 0;">Weekly Performance Audit Summary</p>
+    </div>
+
+    {% for week in weeks %}
+        <div class="report-label">{{ week.label }}</div>
+        {% for category, items in week.categories.items %}
+            <div class="cat-head">{{ category }}</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 45%;">Product Identity</th>
+                        <th class="text-center">Beginning</th>
+                        <th class="text-center">Stock In</th>
+                        <th class="text-center">Stock Out</th>
+                        <th class="text-right">Ending</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item_name, data in items.items %}
+                    <tr>
+                        <td><strong>{{ item_name }}</strong></td>
+                        <td class="text-center">{{ data.beginning }}</td>
+                        <td class="text-center" style="color: #16a34a;">{% if data.in > 0 %}+{{ data.in }}{% else %}-{% endif %}</td>
+                        <td class="text-center" style="color: #ea580c;">{% if data.out > 0 %}-{{ data.out }}{% else %}-{% endif %}</td>
+                        <td class="text-right {% if data.ending <= 5 %}low-stock{% endif %}">{{ data.ending }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endfor %}
+    {% endfor %}
+</body>
+</html>
