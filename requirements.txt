@@ -13,6 +13,7 @@ django-otp==1.7.0
 django-phonenumber-field==8.4.0
 django-two-factor-auth==1.18.1
 django-widget-tweaks==1.5.1
+django-mathfilters==1.0.0
 et_xmlfile==2.0.0
 fonttools==4.61.1
 gunicorn==25.1.0
