@@ -46,28 +46,30 @@ from .utils import create_snapshot
 # ===========================
 def user_login(request):
     if request.method == "POST":
-        username = request.POST.get("username")
-        password = request.POST.get("password")
+        # UPDATED: Match the new names from your HTML template
+        username = request.POST.get("user_auth_id")  # Changed from "username"
+        password = request.POST.get("user_auth_key") # Changed from "password"
         remember = request.POST.get("remember")
 
+        # The authenticate function stays the same (it uses the variables above)
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
             login(request, user)
 
-            # Remember me: if not checked, session expires on close
+            # Remember me logic
             if not remember:
                 request.session.set_expiry(0)
 
             messages.success(request, f"Welcome back, {user.username}!")
 
-            # Handle next parameter
             next_url = request.GET.get('next') or 'dashboard'
             return redirect(next_url)
         else:
             messages.error(request, "Invalid username or password.")
 
     return render(request, 'inventory/login.html')
+
 
 def user_logout(request):
     logout(request)
