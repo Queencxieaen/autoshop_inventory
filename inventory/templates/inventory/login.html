@@ -16,7 +16,6 @@
     }
 
     body, html { height: 100%; margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background-color: #ffffff; overflow: hidden; }
-
     .split-container { display: flex; height: 100vh; width: 100%; }
 
     /* LEFT SIDE */
@@ -36,7 +35,6 @@
     /* RIGHT SIDE */
     .form-side { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; background: white; }
     .login-box { width: 100%; max-width: 400px; }
-
     .brand-title { font-weight: 800; font-size: 2.4rem; letter-spacing: -0.05em; color: var(--studio-dark); text-transform: uppercase; margin-bottom: 2px; }
     .form-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; color: #94a3b8; margin-bottom: 12px; display: block; }
 
@@ -45,9 +43,10 @@
         padding: 16px 20px; width: 100%; font-size: 14px; font-weight: 600;
         color: var(--studio-dark); transition: all 0.3s ease;
     }
+    /* Fixed: Placeholder color for better visibility */
+    .custom-input::placeholder { color: #94a3b8; font-weight: 400; opacity: 0.8; }
     .custom-input:focus { background: #dee7f9; outline: none; box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1); }
 
-    /* PASSWORD WRAPPER */
     .password-wrapper { position: relative; width: 100%; }
     .eye-toggle-btn {
         position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
@@ -63,7 +62,6 @@
     }
     .btn-studio:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(15, 23, 42, 0.2); opacity: 0.9; }
 
-    /* ANIMATIONS */
     @keyframes imageReveal { from { transform: scale(1.1); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     .stagger { opacity: 0; animation: revealUp 0.8s cubic-bezier(0.2, 1, 0.3, 1) forwards; }
     .s-1 { animation-delay: 0.3s; }
@@ -76,7 +74,7 @@
     <div class="visual-side">
         <div class="visual-overlay">
             <h1 class="text-white fw-black m-0 stagger s-1" style="font-size: 3.5rem; line-height: 1; letter-spacing: -0.05em;">Studio <br>Performance.</h1>
-            <p class="text-white opacity-50 mt-4 lead stagger s-2">Precision-driven inventory management for Autosthetics.</p>
+            <p class="text-white opacity-50 mt-4 lead stagger s-2">Precision-driven inventory management for Autosthetics Car Care Center.</p>
         </div>
     </div>
 
@@ -87,21 +85,19 @@
                 <p class="text-muted small fw-bold text-uppercase tracking-widest" style="font-size: 9px; opacity: 0.7;">Management Interface</p>
             </div>
 
-            <!-- autocomplete="off" on the form itself -->
             <form method="POST" autocomplete="off">
                 {% csrf_token %}
                 
-                <!-- 1. HONEY POT: Hidden fields to trick Chrome's autofill -->
-                <input type="text" name="email" style="display:none" aria-hidden="true" tabindex="-1">
-                <input type="password" name="password" style="display:none" aria-hidden="true" tabindex="-1">
+                <!-- HONEY POT: Steals browser autofill focus -->
+                <input type="text" name="user_email_fake" style="display:none" aria-hidden="true" tabindex="-1">
+                <input type="password" name="password_fake" style="display:none" aria-hidden="true" tabindex="-1">
 
                 <div class="mb-4 stagger s-2">
                     <label class="form-label">Username</label>
-                    <!-- 2. RENAMED FIELD: user_auth_id -->
                     <input type="text" 
                            name="user_auth_id" 
                            class="custom-input" 
-                           placeholder="autosthetics_admin" 
+                           placeholder="Enter username" 
                            required 
                            readonly 
                            onfocus="this.removeAttribute('readonly');" 
@@ -111,12 +107,11 @@
                 <div class="mb-4 stagger s-2">
                     <label class="form-label">Password</label>
                     <div class="password-wrapper">
-                        <!-- 3. RENAMED FIELD: user_auth_key -->
                         <input type="password" 
                                name="user_auth_key" 
                                id="password" 
                                class="custom-input" 
-                               placeholder="••••••••••••" 
+                               placeholder="Enter password" 
                                required 
                                style="padding-right: 50px;" 
                                readonly 
