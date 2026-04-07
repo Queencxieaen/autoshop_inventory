@@ -1,100 +1,262 @@
 {% extends "inventory/base.html" %}
 {% load humanize %}
 
-{% block title %}Stock Adjustment | Autosthetics{% endblock %}
+{% block title %}Sync Terminal | Autosthetics{% endblock %}
 
 {% block content %}
+<!-- Lucide Icons & Specialist Fonts -->
 <script src="https://unpkg.com"></script>
+<link href="https://googleapis.com" rel="stylesheet">
 
 <style>
-    :root { --terminal-dark: #0f172a; --accent-amber: #f59e0b; --border-subtle: #f1f5f9; }
-    body { background-color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; }
-    .terminal-header { background: white; border-bottom: 1px solid var(--border-subtle); padding: 1.5rem 2rem; margin-bottom: 2rem; }
-    .control-panel { background: white; border: 1px solid var(--border-subtle); border-radius: 20px; padding: 2rem; height: fit-content; position: sticky; top: 2rem; }
-    .ledger-card { background: white; border: 1px solid var(--border-subtle); border-radius: 20px; overflow: hidden; margin-bottom: 1.5rem; }
-    .form-label-caps { font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; display: block; }
-    .input-terminal { border: 2px solid #f1f5f9; border-radius: 12px; padding: 12px 16px; font-size: 14px; width: 100%; background: #f8fafc; outline: none; }
-    .input-terminal:focus { border-color: var(--accent-amber); background: white; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.05); }
-    .btn-action { background: var(--terminal-dark); color: white; border: none; padding: 16px; border-radius: 14px; font-weight: 800; width: 100%; transition: all 0.3s; }
-    .btn-action:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15); color: white; }
-    .locked-indicator { background: rgba(245, 158, 11, 0.05); border: 2px dashed var(--accent-amber); color: var(--accent-amber); border-radius: 12px; padding: 12px 16px; }
+    :root { 
+        --terminal-dark: #0f172a; 
+        --accent-amber: #f59e0b; 
+        --success-emerald: #10b981;
+        --danger-rose: #f43f5e;
+        --border-subtle: rgba(226, 232, 240, 0.8); 
+    }
+
+    body { background-color: #f1f5f9; font-family: 'Plus Jakarta Sans', sans-serif; color: #1e293b; }
+
+    /* Glassmorphism Cards */
+    .glass-card { 
+        background: rgba(255, 255, 255, 0.9); 
+        backdrop-filter: blur(10px); 
+        border: 1px solid var(--border-subtle); 
+        border-radius: 24px; 
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+    }
+
+    .terminal-header { 
+        background: white; 
+        padding: 1.25rem 2.5rem; 
+        border-bottom: 1px solid var(--border-subtle);
+        margin-bottom: 2rem;
+    }
+
+    .form-label-caps { 
+        font-size: 10px; font-weight: 800; color: #64748b; 
+        text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 8px; display: block; 
+    }
+
+    .input-terminal { 
+        border: 2px solid #e2e8f0; border-radius: 14px; padding: 14px 18px; 
+        font-size: 14px; width: 100%; background: #ffffff; transition: all 0.2s;
+    }
+
+    .input-terminal:focus { border-color: var(--accent-amber); outline: none; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.1); }
+
+    .cat-badge {
+        font-size: 9px; font-weight: 900; padding: 2px 8px; border-radius: 6px;
+        background: #f1f5f9; color: #64748b; text-transform: uppercase;
+    }
+
+    .btn-commit { 
+        background: var(--terminal-dark); color: white; border: none; padding: 18px; 
+        border-radius: 16px; font-weight: 800; width: 100%; letter-spacing: 0.05em;
+        display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.3s;
+    }
+
+    .btn-commit:hover { transform: translateY(-2px); box-shadow: 0 12px 20px rgba(15, 23, 42, 0.15); }
+
+    .mono-font { font-family: 'JetBrains Mono', monospace; }
+
+    /* Alert Pulse Animation */
+    .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
 </style>
 
-<div class="terminal-header d-flex justify-content-between align-items-center shadow-sm">
+<div class="terminal-header d-flex justify-content-between align-items-center">
     <div class="d-flex align-items-center gap-3">
-        <div class="p-2 bg-warning bg-opacity-10 text-warning rounded-3"><i data-lucide="refresh-cw"></i></div>
-        <div><h4 class="fw-black mb-0 text-uppercase">Sync Terminal</h4><p class="text-muted small mb-0 fw-bold">Manual reconciliation protocol</p></div>
+        <div class="p-2 bg-warning bg-opacity-10 text-warning rounded-4"><i data-lucide="zap"></i></div>
+        <div>
+            <h4 class="fw-black mb-0">SYNC TERMINAL</h4>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-success bg-opacity-10 text-success p-1 rounded-circle"><div style="width:6px;height:6px;background:currentColor;border-radius:50%"></div></span>
+                <p class="text-muted small mb-0 fw-bold">Live Inventory Stream</p>
+            </div>
+        </div>
+    </div>
+    <div class="text-end">
+        <div class="text-muted small fw-bold text-uppercase">System Date</div>
+        <div class="fw-black mono-font text-dark">{{ today|date:"Y-m-d" }}</div>
     </div>
 </div>
 
 <div class="container-fluid px-4 px-lg-5 pb-5">
     <div class="row g-4">
+        <!-- LEFT: ACTION PANEL -->
         <div class="col-lg-4">
-            <div class="control-panel shadow-sm">
+            <div class="glass-card p-4 h-100">
+                {% if not selected_item %}
+                <form method="GET" class="mb-4">
+                    <label class="form-label-caps">Search Catalog</label>
+                    <div class="position-relative">
+                        <input type="text" name="q" class="input-terminal ps-5" placeholder="Search car or part code..." value="{{ query|default:'' }}">
+                        <i data-lucide="search" class="position-absolute start-0 ms-3 top-50 translate-middle-y text-muted" size="18"></i>
+                    </div>
+                </form>
+                {% endif %}
+
                 <form method="POST">
                     {% csrf_token %}
                     <div class="mb-4">
                         <label class="form-label-caps">Target Product</label>
                         {% if selected_item %}
-                            <!-- PRE-SELECTED STATE -->
-                            <div class="locked-indicator d-flex justify-content-between align-items-center">
-                                <div><i data-lucide="lock" size="14" class="me-1"></i><span class="fw-bold">{{ selected_item.name }}</span></div>
-                                <span class="badge bg-warning bg-opacity-20 text-warning rounded-pill px-2">Bal: {{ selected_item.quantity }}</span>
+                            <div class="p-3 rounded-4 border-2 border-warning border-dashed bg-warning bg-opacity-10">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <span class="cat-badge mb-2">{% if selected_item.category %}{{ selected_item.category.name }}{% else %}General{% endif %}</span>
+                                        <div class="fw-black text-dark h5 mb-0">{{ selected_item.name }}</div>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="text-muted small fw-bold">BAL</div>
+                                        <div class="h4 fw-black mb-0 mono-font text-warning">{{ selected_item.quantity }}</div>
+                                    </div>
+                                </div>
                             </div>
                             <input type="hidden" name="item" value="{{ selected_item.id }}">
-                            <p class="text-muted mt-2 small" style="font-size: 10px;">Target selection confirmed from alerts page.</p>
+                            <div class="mt-2"><a href="{% url 'adjust_stock' %}" class="text-decoration-none small fw-bold text-muted"><i data-lucide="x-circle" size="12"></i> Reset Selection</a></div>
                         {% else %}
-                            <!-- MANUAL SELECTION -->
                             <select name="item" class="input-terminal" required>
-                                <option value="" disabled selected>Select an item...</option>
+                                <option value="" disabled selected>Select from {{ items|length }} results...</option>
                                 {% for item in items %}
-                                    <option value="{{ item.id }}">{{ item.name }} (Bal: {{ item.quantity }})</option>
+                                    <option value="{{ item.id }}">
+                                        [{% if item.category %}{{ item.category.name|upper }}{% else %}NA{% endif %}] {{ item.name }} | Bal: {{ item.quantity }}
+                                    </option>
                                 {% endfor %}
                             </select>
                         {% endif %}
                     </div>
 
-                    <div class="mb-4">
-                        <label class="form-label-caps">Quantity</label>
-                        <input type="number" name="quantity" min="1" class="input-terminal" placeholder="Enter amount..." required>
+                    <div class="row g-3 mb-4">
+                        <div class="col-6">
+                            <label class="form-label-caps">Quantity</label>
+                            <input type="number" name="quantity" min="1" class="input-terminal mono-font" placeholder="0" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label-caps">Mode</label>
+                            <select name="reason" id="modeSelect" class="input-terminal fw-bold" required>
+                                <option value="add">STOCK IN (+)</option>
+                                <option value="remove" selected>STOCK OUT (-)</option>
+                                <option value="adjust">ADJUST (=)</option>
+                            </select>
+                        </div>
                     </div>
 
-                    <div class="mb-4">
-                        <label class="form-label-caps">Operation Mode</label>
-                        <select name="reason" class="input-terminal" required>
-                            <option value="add">STOCK IN (+) </option>
-                            <option value="remove">STOCK OUT (-) </option>
-                            <option value="adjust">PHYSICAL ADJUSTMENT (=) </option>
-                        </select>
-                    </div>
-
-                    <button type="submit" class="btn-action">COMMIT SYNCHRONIZATION</button>
+                    <button type="submit" class="btn-commit" id="commitBtn">
+                        <i data-lucide="arrow-right-circle" size="20"></i>
+                        COMMIT SYNCHRONIZATION
+                    </button>
                 </form>
             </div>
         </div>
 
+        <!-- RIGHT: COMMAND CENTER -->
         <div class="col-lg-8">
-            <div class="ledger-card shadow-sm mb-4">
-                <div class="p-3 border-bottom"><h6 class="fw-bold mb-0 small text-uppercase">Today's Ledger Status</h6></div>
-                <table class="table mb-0">
-                    <thead><tr><th class="ps-4">Item</th><th class="text-center">Start</th><th class="text-center">In</th><th class="text-center">Out</th><th class="text-end pe-4">Balance</th></tr></thead>
-                    <tbody>
-                        {% for snapshot in today_ledger %}
-                        <tr>
-                            <td class="ps-4 fw-bold">{{ snapshot.item.name }}</td>
-                            <td class="text-center text-muted">{{ snapshot.beginning_quantity }}</td>
-                            <td class="text-center text-success fw-bold">{{ snapshot.stock_in }}</td>
-                            <td class="text-center text-danger fw-bold">{{ snapshot.stock_out }}</td>
-                            <td class="text-end pe-4"><span class="badge bg-dark px-3 py-2">{{ snapshot.ending_quantity }}</span></td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="5" class="text-center py-5 text-muted small">No transactions today.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div class="row g-4">
+                <!-- 2-COLUMN STATS GRID -->
+                <div class="col-md-6">
+                    <div class="glass-card p-4 text-center border-bottom border-danger border-4 h-100 shadow-sm">
+                        <div class="form-label-caps text-danger">Stock Alerts</div>
+                        <div class="h1 fw-black text-danger mb-0 mono-font">{{ low_stock_count }}</div>
+                        <div class="small text-muted fw-bold text-uppercase" style="font-size: 10px;">Items Below Threshold</div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="glass-card p-4 text-center border-bottom border-warning border-4 h-100 shadow-sm d-flex flex-column justify-content-center">
+                        <div class="form-label-caps text-warning mb-3">Quick Navigation</div>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'all_items' %}" class="btn btn-dark w-100 rounded-pill fw-bold py-2">
+                                <i data-lucide="package" size="14" class="me-1"></i> Full Catalog
+                            </a>
+                            <a href="{% url 'reports' %}" class="btn btn-outline-dark w-100 rounded-pill fw-bold py-2">
+                                <i data-lucide="file-text" size="14" class="me-1"></i> Reports
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- URGENT ATTENTION -->
+                <div class="col-12">
+                    <div class="glass-card overflow-hidden">
+                        <div class="p-4 border-bottom bg-white d-flex justify-content-between align-items-center">
+                            <h6 class="fw-black mb-0 text-uppercase">Urgent Replenishment Required</h6>
+                            <i data-lucide="alert-triangle" class="text-danger animate-pulse"></i>
+                        </div>
+                        <table class="table table-hover mb-0 align-middle">
+                            <tbody>
+                                {% for item in critical_items %}
+                                <tr>
+                                    <td class="ps-4 py-3">
+                                        <div class="fw-bold">{{ item.name }}</div>
+                                        <span class="cat-badge">{% if item.category %}{{ item.category.name }}{% else %}General{% endif %}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3">{{ item.quantity }} Left</span>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <a href="?q={{ item.name }}" class="btn btn-sm btn-dark rounded-pill px-3 fw-bold">Quick Select</a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td class="text-center py-5 text-muted fw-bold">All systems nominal.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- LIVE FEED -->
+                <div class="col-12">
+                    <div class="glass-card p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h6 class="fw-black mb-0 text-uppercase">Live Terminal Activity</h6>
+                            <span class="badge bg-light text-dark fw-bold border">{{ recent_movements|length }} Recent Movements</span>
+                        </div>
+                        <div class="d-flex flex-column gap-3">
+                            {% for m in recent_movements %}
+                            <div class="d-flex align-items-center gap-3 p-3 rounded-4 bg-light bg-opacity-50">
+                                <div class="p-2 {% if m.reason == 'add' %}bg-success{% elif m.reason == 'remove' %}bg-danger{% else %}bg-warning{% endif %} bg-opacity-10 rounded-3">
+                                    <i data-lucide="activity" size="14" class="{% if m.reason == 'add' %}text-success{% elif m.reason == 'remove' %}text-danger{% else %}text-warning{% endif %}"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold small">{{ m.item.name }}</div>
+                                    <div class="text-muted" style="font-size: 10px;">{{ m.date|timesince }} ago — By {{ m.user.username|default:"System" }}</div>
+                                </div>
+                                <div class="text-end fw-black mono-font {% if m.reason == 'add' %}text-success{% elif m.reason == 'remove' %}text-danger{% endif %}">
+                                    {% if m.reason == 'add' %}+{% elif m.reason == 'remove' %}-{% endif %}{{ m.quantity }}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
-<script>lucide.createIcons();</script>
+
+<script>
+    lucide.createIcons();
+
+    const modeSelect = document.getElementById('modeSelect');
+    const commitBtn = document.getElementById('commitBtn');
+
+    modeSelect.addEventListener('change', function() {
+        if (this.value === 'add') {
+            commitBtn.style.background = 'var(--success-emerald)';
+            commitBtn.innerHTML = '<i data-lucide="plus-circle"></i> CONFIRM STOCK IN';
+        } else if (this.value === 'remove') {
+            commitBtn.style.background = 'var(--danger-rose)';
+            commitBtn.innerHTML = '<i data-lucide="minus-circle"></i> CONFIRM STOCK OUT';
+        } else {
+            commitBtn.style.background = 'var(--accent-amber)';
+            commitBtn.innerHTML = '<i data-lucide="refresh-ccw"></i> EXECUTE ADJUSTMENT';
+        }
+        lucide.createIcons();
+    });
+</script>
 {% endblock %}

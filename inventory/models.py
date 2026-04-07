@@ -57,6 +57,12 @@ class Item(models.Model):
     price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     unit = models.CharField(max_length=10, choices=UNIT_CHOICES, default='pcs')
+    
+    # --- NEW FIELD ADDED BELOW ---
+    # This allows you to tag parts with car models (e.g. Foton Gratour, Toyota Vios)
+    compatible_units = models.TextField(blank=True, null=True, help_text="List cars this fits")
+    # -----------------------------
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

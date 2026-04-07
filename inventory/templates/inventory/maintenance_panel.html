@@ -1,0 +1,173 @@
+{% extends "inventory/base.html" %}
+{% block content %}
+<style>
+    :root {
+        --studio-bg: #f8fafc;
+        --studio-card: #ffffff;
+        --studio-border: #e2e8f0;
+        --studio-text: #1e293b;
+        --studio-accent: #2563eb;
+    }
+
+    body { background-color: var(--studio-bg); color: var(--studio-text); font-family: 'Inter', sans-serif; }
+
+    /* Professional Glass Sidebar */
+    .filter-card {
+        background: var(--studio-card);
+        border: 1px solid var(--studio-border);
+        border-radius: 12px;
+        position: sticky;
+        top: 20px;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+
+    /* Modern Model Tags */
+    .model-tag {
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+        padding: 6px 12px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 0.75rem;
+        transition: all 0.2s;
+        display: inline-block;
+        margin: 2px;
+    }
+    .model-tag:hover { background: #e2e8f0; color: var(--studio-text); transform: translateY(-1px); }
+    .model-tag.active { background: var(--studio-accent); color: white; border-color: var(--studio-accent); }
+
+    /* Data Ledger Table */
+    .ledger-card {
+        background: var(--studio-card);
+        border: 1px solid var(--studio-border);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    }
+
+    .edit-box {
+        background: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+    }
+    .edit-box:focus { border-color: var(--studio-accent) !important; outline: none; background: #fff !important; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+
+    .btn-update {
+        background: var(--studio-accent);
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+    .btn-update:hover { background: #1d4ed8; color: white; }
+</style>
+
+<div class="container-fluid py-4 px-lg-5">
+    
+    <!-- HEADER & HUD STATS -->
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h3 class="fw-bold mb-0">Compatibility Management Studio</h3>
+            <div class="d-flex gap-4 mt-2">
+                <span class="text-muted small"><i data-lucide="database" size="14"></i> DB Health: <strong class="text-primary">{{ health }}%</strong></span>
+                <span class="text-muted small"><i data-lucide="check-circle" size="14"></i> Configured: <strong class="text-success">{{ tagged_count }}/{{ total }}</strong></span>
+            </div>
+        </div>
+        <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary rounded-pill px-4">
+            <i data-lucide="arrow-left" size="14" class="me-2"></i> Exit Studio
+        </a>
+    </div>
+
+    <!-- GLOBAL SEARCH -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <form method="GET" class="card shadow-sm border-0 p-3 rounded-4">
+                <div class="input-group input-group-lg">
+                    <span class="input-group-text bg-white border-end-0 text-muted"><i data-lucide="search"></i></span>
+                    <input type="text" name="q" value="{{ query }}" class="form-control border-start-0 shadow-none" 
+                           placeholder="Search by Item Name, Category, or Car Model (e.g. Avanza, Brake Shoe)...">
+                    {% if query %}
+                        <a href="{% url 'secret_panel' %}" class="btn btn-light d-flex align-items-center border">Clear Search</a>
+                    {% endif %}
+                    <button class="btn btn-dark px-5 fw-bold" type="submit">Filter List</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- SIDEBAR: TAG REGISTRY -->
+        <div class="col-lg-3">
+            <div class="filter-card p-4">
+                <h6 class="fw-bold small text-uppercase tracking-wider mb-3 text-muted">Car Model Registry</h6>
+                <div class="d-flex flex-wrap gap-1">
+                    {% for unit in unique_units %}
+                    <a href="?q={{ unit }}" class="model-tag {% if query == unit %}active{% endif %}">
+                        {{ unit }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN: LEDGER -->
+        <div class="col-lg-9">
+            <div class="ledger-card">
+                <div class="p-4 border-bottom bg-light d-flex justify-content-between">
+                    <h6 class="fw-bold mb-0">System Inventory Ledger</h6>
+                    <span class="small text-muted">{{ items.count }} Results Matching "{{ query|default:"All" }}"</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr class="small text-muted text-uppercase" style="font-size: 0.7rem;">
+                                <th class="ps-4 py-3 border-0">Object Identity</th>
+                                <th class="py-3 border-0">Compatibility Mapping</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            <tr>
+                                <td class="ps-4 py-4" style="width: 30%;">
+                                    <div class="fw-bold text-dark">{{ item.name }}</div>
+                                    <div class="d-flex gap-2 mt-1">
+                                        <span class="badge bg-secondary-subtle text-secondary border px-2 py-1" style="font-size: 10px;">ID: {{ item.id }}</span>
+                                        <span class="badge bg-info-subtle text-info border px-2 py-1" style="font-size: 10px;">{{ item.category.name|upper|default:"GENERAL" }}</span>
+                                    </div>
+                                </td>
+                                <td class="pe-4 py-4">
+                                    <form id="form-{{ item.id }}" method="POST" class="d-flex gap-3 align-items-center">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="item_id" value="{{ item.id }}">
+                                        <textarea name="compatible_units" class="form-control edit-box w-100" rows="1">{{ item.compatible_units }}</textarea>
+                                        <button type="submit" class="btn btn-update shadow-sm">Update</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="2" class="text-center py-5 text-muted italic">No records found matching your query.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    lucide.createIcons();
+    // UX: Smart expand for easier auditing
+    document.querySelectorAll('textarea').forEach(el => {
+        el.onfocus = () => { el.rows = 3; };
+        el.onblur = () => { if(el.value.length < 30) el.rows = 1; };
+    });
+</script>
+{% endblock %}

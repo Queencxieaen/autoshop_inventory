@@ -54,6 +54,9 @@
         transition: all 0.2s;
     }
     .action-btn:hover { background: rgba(15, 23, 42, 0.1); color: var(--studio-dark); }
+    
+    /* Subtle hint: cursor changes on the secret trigger */
+    #secret-trigger { cursor: pointer; user-select: none; }
 </style>
 
 <div class="container-fluid py-4 px-lg-5">
@@ -145,9 +148,11 @@
         <div class="col-lg-4">
             <div class="card shadow-sm p-4 rounded-4 bg-dark text-white border-0 h-100" 
                  style="background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);">
-                <h5 class="fw-bold mb-4 d-flex align-items-center">
+                
+                <h5 id="secret-trigger" class="fw-bold mb-4 d-flex align-items-center">
                     <i data-lucide="zap" class="text-warning me-2" size="20"></i> Command Console
                 </h5>
+
                 <div class="d-flex flex-column gap-3">
                     <a href="{% url 'add_item' %}" class="action-btn text-white" style="background: rgba(255,255,255,0.05);">
                         <i data-lucide="plus-circle" class="me-3 text-primary"></i> New Product
@@ -161,31 +166,33 @@
     </div>
 </div>
 
-<!-- Scripts -->
-<script src="https://jsdelivr.net"></script>
-
-<!-- FIXED: Stable UMD version of Lucide -->
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-
+<!-- SECRET JAVASCRIPT FOR INTERN MAINTENANCE -->
 <script>
-    // 1. Define the render function
-    function renderIcons() {
-        if (window.lucide) {
-            lucide.createIcons();
-            console.log("Lucide: Icons rendered.");
-        } else {
-            console.error("Lucide: Script not found.");
+    let secretClicks = 0;
+    const trigger = document.getElementById('secret-trigger');
+    const ACCESS_KEY = "1234"; // You can change this secret key
+
+    trigger.addEventListener('click', () => {
+        secretClicks++;
+        
+        if (secretClicks === 3) {
+            // Prompt for secret key
+            let entry = prompt("SYSTEM AUTHENTICATION REQUIRED\nPlease enter maintenance access key:");
+            
+            if (entry === ACCESS_KEY) {
+                window.location.href = "{% url 'secret_panel' %}"; 
+            } else if (entry !== null) {
+                alert("ERROR: Invalid access key.");
+            }
+            secretClicks = 0; // Always reset after an attempt
         }
-    }
 
-    // 2. Trigger immediately
-    renderIcons();
+        // Reset if clicks are too slow
+        setTimeout(() => { secretClicks = 0; }, 1500);
+    });
 
-    // 3. Trigger again when the full page is ready
-    document.addEventListener("DOMContentLoaded", renderIcons);
-    
-    // 4. Final safety trigger (for slow connections)
-    window.onload = renderIcons;
+    // Initialize icons
+    lucide.createIcons();
 </script>
 
 {% endblock %}

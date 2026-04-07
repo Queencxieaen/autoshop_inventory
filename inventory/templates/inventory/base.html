@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Lucide Icons -->
-    <script src="https://unpkg.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
         :root {
@@ -41,9 +41,9 @@
             padding: 2.5rem 1.5rem;
             display: flex;
             flex-direction: column;
+            flex-shrink: 0; /* Ensures brand area doesn't squash */
         }
 
-        /* --- LOGO CONTAINER FIX --- */
         .brand-logo-container {
             width: 42px; 
             height: 42px;
@@ -60,7 +60,7 @@
         .brand-logo-img {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* Ensures logo isn't squashed */
+            object-fit: cover;
         }
 
         .sidebar-brand h4 {
@@ -73,9 +73,13 @@
             text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8;
         }
 
+        /* FIXED: Added Flexbox and Overflow to the nav container */
         .nav-sidebar {
             padding: 1rem 0.8rem;
             flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
         }
 
         .nav-sidebar a {
@@ -107,9 +111,16 @@
             margin: 1.5rem 1rem;
             border-color: #f1f5f9;
             opacity: 0.8;
+            flex-shrink: 0;
         }
 
-        /* --- MAIN WRAPPER FIX --- */
+        /* FIXED: Pushes Logout to the very bottom */
+        .logout-link {
+            margin-top: auto; 
+            margin-bottom: 2rem !important;
+        }
+
+        /* --- MAIN WRAPPER --- */
         #main-wrapper {
             margin-left: var(--sidebar-width);
             width: calc(100% - var(--sidebar-width));
@@ -139,12 +150,9 @@
 </head>
 <body>
 
-<!-- Sidebar HTML -->
 <aside id="sidebar">
     <div class="sidebar-brand">
-        <!-- LOGO CONTAINER -->
         <div class="brand-logo-container">
-            <!-- Ensure logo.png exists in static/images/ -->
             <img src="{% static 'images/default_profile.jpg' %}" alt="Logo" class="brand-logo-img">
         </div>
         <h4>Autosthetics</h4>
@@ -152,6 +160,7 @@
     </div>
 
     <nav class="nav-sidebar">
+        <!-- Main Links Group -->
         <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
             <i data-lucide="layout-dashboard" size="18"></i> Dashboard
         </a>
@@ -170,18 +179,20 @@
         <a href="{% url 'categories' %}" class="{% if request.resolver_match.url_name == 'categories' %}active{% endif %}">
             <i data-lucide="layers" size="18"></i> Categories
         </a>
+        
         <hr>
+        
         <a href="{% url 'settings_page' %}" class="{% if request.resolver_match.url_name == 'settings_page' %}active{% endif %}">
             <i data-lucide="settings" size="18"></i> Settings
         </a>
-        <a href="{% url 'logout' %}" class="text-danger mt-4">
+
+        <!-- FIXED: Added 'logout-link' class -->
+        <a href="{% url 'logout' %}" class="text-danger logout-link">
             <i data-lucide="log-out" size="18"></i> Logout
         </a>
     </nav>
 </aside>
 
-
-<!-- Main Content Wrapper -->
 <div id="main-wrapper">
     <div class="topbar">
         <h5 class="mb-0 fw-bold">{% block page_title %}{% endblock %}</h5>
@@ -208,13 +219,10 @@
     </main>
 </div>
 
-
 <script src="https://unpkg.com/lucide@latest"></script>
 <script>
-   
     lucide.createIcons();
 </script>
-
 
 </body>
 </html>

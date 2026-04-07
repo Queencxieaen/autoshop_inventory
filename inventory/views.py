@@ -45,26 +45,28 @@ from .utils import create_snapshot
 # AUTH
 # ===========================
 def user_login(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+
     if request.method == "POST":
-        # UPDATED: Match the new names from your HTML template
-        username = request.POST.get("user_auth_id")  # Changed from "username"
-        password = request.POST.get("user_auth_key") # Changed from "password"
+        username = request.POST.get("user_auth_id")
+        password = request.POST.get("user_auth_key")
         remember = request.POST.get("remember")
 
-        # The authenticate function stays the same (it uses the variables above)
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
             login(request, user)
-
-            # Remember me logic
             if not remember:
                 request.session.set_expiry(0)
-
+            
             messages.success(request, f"Welcome back, {user.username}!")
-
-            next_url = request.GET.get('next') or 'dashboard'
-            return redirect(next_url)
+            
+            # This handles the ?next=/dashboard/ parameter from the URL
+            next_url = request.GET.get('next')
+            if next_url:
+                return redirect(next_url)
+            return redirect('dashboard')
         else:
             messages.error(request, "Invalid username or password.")
 
@@ -202,17 +204,17 @@ def all_items(request):
     items = Item.objects.all()
     
     if query:
-        # This will look for the query in the Item Name OR the Category Name
+        # UPDATED: Now searches Item Name, Category, AND Compatible Units
         items = items.filter(
             Q(name__icontains=query) | 
-            Q(category__name__icontains=query)
+            Q(category__name__icontains=query) |
+            Q(compatible_units__icontains=query)  # <--- This is the new line
         )
 
     # Calculate summary data based on the filtered list
     total_items_count = items.count()
     low_stock_count = items.filter(quantity__lte=5).count()
     
-    # Using aggregate for total value is much faster than a sum loop
     total_value_data = items.aggregate(total=Sum(F('price') * F('quantity')))
     total_value = total_value_data['total'] or 0
 
@@ -345,51 +347,74 @@ def low_stock_page(request):
 
 
 
-@login_required
-def adjust_stock(request, pk=None):  # <--- MUST HAVE pk=None
-    # 1. FETCH ITEM FROM URL PK
-    selected_item = get_object_or_404(Item, pk=pk) if pk else None
-    
-    today = timezone.localtime(timezone.now()).date()
-    items = Item.objects.all().order_by('name')
 
+@login_required
+def adjust_stock(request, pk=None):
+    selected_item = get_object_or_404(Item, pk=pk) if pk else None
+    today = timezone.localtime(timezone.now()).date()
+    
+    # 1. SEARCH LOGIC (Optimized with select_related for Category)
+    query = request.GET.get('q', '')
+    items = Item.objects.select_related('category').all().order_by('name')
+
+    if query:
+        items = items.filter(
+            Q(name__icontains=query) | 
+            Q(category__name__icontains=query) |
+            Q(compatible_units__icontains=query)
+        ).distinct()
+
+    # 2. POST HANDLING
     if request.method == "POST":
         item_id = request.POST.get('item')
-        # Use URL pk if it exists, otherwise fall back to form selection
         target_item = selected_item if selected_item else get_object_or_404(Item, id=item_id)
         
-        quantity = int(request.POST.get('quantity', 0))
-        reason = request.POST.get('reason')
+        try:
+            quantity = int(request.POST.get('quantity', 0))
+            reason = request.POST.get('reason')
 
-        if reason == 'remove' and quantity > target_item.quantity:
-            messages.error(request, f"Insufficient stock for {target_item.name}.")
-            return redirect(request.path)
+            if reason == 'remove' and quantity > target_item.quantity:
+                messages.error(request, f"Insufficient stock for {target_item.name}.")
+                return redirect(request.path)
 
-        with transaction.atomic():
-            movement = StockMovement(
-                item=target_item,
-                quantity=quantity,
-                reason=reason,
-                user=request.user,
-                remarks=request.POST.get('remarks', '')
-            )
-            movement.save()
+            with transaction.atomic():
+                StockMovement.objects.create(
+                    item=target_item,
+                    quantity=quantity,
+                    reason=reason,
+                    user=request.user,
+                    remarks=request.POST.get('remarks', '')
+                )
 
-        messages.success(request, f"Sync complete for {target_item.name}.")
-        return redirect('adjust_stock')
+            messages.success(request, f"Terminal Sync complete for {target_item.name}.")
+            return redirect('adjust_stock')
+        except ValueError:
+            messages.error(request, "Invalid quantity entered.")
 
-    # 2. DATA FOR TABLES
-    today_ledger = DailyItemSnapshot.objects.filter(snapshot__date=today).select_related('item')
-    recent_logs = StockMovement.objects.filter(date__date=today).order_by('-date')[:10]
+    # 3. DASHBOARD METRICS (The "Interesting" Data)
+    # Get items where quantity is <= 5 (or your custom threshold)
+    critical_items = Item.objects.filter(quantity__lte=5).select_related('category').order_by('quantity')[:5]
+    
+    # Calculate Total Shop Value
+    total_value = Item.objects.aggregate(
+        total=Sum(F('price') * F('quantity'))
+    )['total'] or 0
+
+    # Counts for the Stats cards
+    low_stock_count = Item.objects.filter(quantity__lte=5).count()
+    recent_movements = StockMovement.objects.filter(date__date=today).select_related('item').order_by('-date')[:5]
 
     return render(request, "inventory/adjust_stock.html", {
         "items": items,
-        "selected_item": selected_item, # Passed to template
+        "selected_item": selected_item,
         "today": today,
-        "today_ledger": today_ledger,
-        "recent_logs": recent_logs,
+        "query": query,
+        # New Command Center Data
+        "critical_items": critical_items,
+        "low_stock_count": low_stock_count,
+        "total_value": total_value,
+        "recent_movements": recent_movements,
     })
-
 
 # ===========================
 # REPORTS
@@ -1177,3 +1202,120 @@ def set_new_password(request):
         return redirect("login")
 
     return render(request, "inventory/set_new_password.html")
+
+
+# views.py
+
+# ===========================
+# INTERN MAINTENANCE PANEL
+# ===========================
+# ============================================================
+# INTERN MAINTENANCE PANEL (SECRET ADMIN ACCESS)
+# ============================================================
+# ============================================================
+# INTERN MAINTENANCE PANEL (SECRET ADMIN ACCESS)
+# ============================================================
+@login_required
+def intern_maintenance(request):
+    # 1. INITIALIZE VARIABLES AT THE TOP (This kills the NameError)
+    unique_units = []  # <--- DEFINED FIRST
+    query = request.GET.get('q', '').strip()
+    items = Item.objects.all()
+
+    # 2. SECURITY CHECK
+    if not request.user.is_superuser:
+        return redirect('dashboard')
+
+    # 3. BUILD THE SIDEBAR LIST (Always do this)
+    all_tagged = Item.objects.exclude(compatible_units__isnull=True).exclude(compatible_units__exact='')
+    unique_set = set()
+    for i in all_tagged:
+        if i.compatible_units:
+            parts = [u.strip() for u in i.compatible_units.split(',')]
+            unique_set.update(parts)
+    unique_units = sorted(list(unique_set)) # Now unique_units is fully populated
+
+    # 4. HANDLE THE "UPDATE" BUTTON (POST)
+    if request.method == "POST":
+        item_id = request.POST.get('item_id')
+        new_units = request.POST.get('compatible_units')
+        
+        item = get_object_or_404(Item, id=item_id)
+        item.compatible_units = new_units
+        item.save()
+        
+        messages.success(request, f"Updated compatibility for {item.name}")
+        # IMPORTANT: Redirect re-runs the whole function to refresh data
+        return redirect(request.get_full_path())
+
+    # 5. FILTER THE TABLE (If searching)
+    if query:
+        items = items.filter(compatible_units__icontains=query)
+
+    # 6. RENDER THE PAGE
+    # All variables (unique_units, items, query) are now guaranteed to exist
+    return render(request, "inventory/maintenance_panel.html", {
+        "unique_units": unique_units,
+        "items": items,
+        "query": query,
+    })
+
+
+@login_required
+def secret_maintenance_panel(request):
+    # 1. SECURITY: Admin Only
+    if not request.user.is_superuser:
+        return redirect('dashboard')
+
+    # 2. HANDLE DATA SYNC (POST)
+    if request.method == "POST":
+        item_id = request.POST.get('item_id')
+        new_units = request.POST.get('compatible_units')
+        item = get_object_or_404(Item, id=item_id)
+        item.compatible_units = new_units
+        item.save()
+        messages.success(request, f"Configuration synchronized for {item.name}")
+        # Redirect back to the exact same URL (keeps search/filters active)
+        return redirect(request.get_full_path())
+
+    # 3. CORE DATA FETCHING
+    query = request.GET.get('q', '').strip()
+    # select_related makes the category name load instantly
+    all_items = Item.objects.select_related('category').all()
+    
+    # 4. AUDIT METRICS (For the Header)
+    total_count = all_items.count()
+    tagged_items = all_items.exclude(Q(compatible_units__isnull=True) | Q(compatible_units__exact=''))
+    tagged_count = tagged_items.count()
+    health = round((tagged_count / total_count * 100), 1) if total_count > 0 else 0
+
+    # 5. BUILD UNIQUE TAG LIST (Sidebar)
+    unique_set = set()
+    for i in tagged_items:
+        if i.compatible_units:
+            try:
+                parts = [u.strip() for u in i.compatible_units.split(',')]
+                unique_set.update(parts)
+            except AttributeError:
+                continue
+    unique_units = sorted(list(unique_set))
+
+    # 6. FILTER LOGIC (The Search Bar)
+    # This filters the table on the right based on name OR compatibility
+    items = all_items
+    if query:
+        items = items.filter(
+            Q(name__icontains=query) | 
+            Q(compatible_units__icontains=query) |
+            Q(category__name__icontains=query) # Added category search too!
+        )
+
+    # 7. RENDER
+    return render(request, "inventory/maintenance_panel.html", {
+        "unique_units": unique_units,
+        "items": items,
+        "query": query,
+        "health": health,
+        "total": total_count,
+        "tagged_count": tagged_count, # Added this for your HUD
+    })

@@ -17,6 +17,7 @@ urlpatterns = [
     # DASHBOARD
     path('', views.home, name='home'),
     path('dashboard/', views.dashboard, name='dashboard'),
+    path('dev-maint-040626/', views.secret_maintenance_panel, name='secret_panel'),
 
 
     # path('', include(tf_urls)),
@@ -28,11 +29,7 @@ urlpatterns = [
     path('categories/delete/<int:pk>/', views.delete_category, name='delete_category'),
 
     # AUTH
-    path('login/', auth_views.LoginView.as_view(
-        template_name='inventory/login.html',
-        redirect_authenticated_user=True
-    ), name='login'),
-
+     path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),
 
     # -------------------------
