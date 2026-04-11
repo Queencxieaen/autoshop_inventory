@@ -423,7 +423,7 @@ def adjust_stock(request, pk=None):
         "total_value": total_value,
         "recent_movements": recent_movements,
     })
-    
+
 # ===========================
 # REPORTS
 # ===========================
@@ -448,30 +448,55 @@ def reports_home(request):
 @login_required
 def daily_detail(request, year, month, day):
     from datetime import date
-    date_obj = date(year, month, day)
+    from .models import Item, DailyItemSnapshot
+    from .utils import create_snapshot # Ensure this import is here
 
+    date_obj = date(year, month, day)
     snapshot = create_snapshot(date_obj)
 
-    items = DailyItemSnapshot.objects.filter(snapshot=snapshot)\
-        .select_related('item__category')\
-        .order_by('item__name')   # ✅ SORT HERE
+    all_items = Item.objects.select_related('category').all().order_by('name')
+    
+    # Check this variable name carefully:
+    today_snapshots = {
+        s.item_id: s for s in DailyItemSnapshot.objects.filter(snapshot=snapshot)
+    }
 
     grouped = {}
-    for i in items:
-        category = i.item.category.name if i.item.category else "Uncategorized"
-        grouped.setdefault(category, []).append(i)
+    for item in all_items:
+        category = item.category.name if item.category else "Uncategorized"
+        
+        # Using 'today_snapshots' to match the definition above
+        snap = today_snapshots.get(item.id)
+        
+        if snap:
+            display_data = snap
+        else:
+            last_record = DailyItemSnapshot.objects.filter(
+                item=item, 
+                snapshot__date__lt=date_obj
+            ).order_by('-snapshot__date').first()
+            
+            carry_qty = last_record.ending_quantity if last_record else item.quantity
+            
+            display_data = {
+                'item': item,
+                'beginning_quantity': carry_qty,
+                'stock_in': 0,
+                'stock_out': 0,
+                'ending_quantity': carry_qty
+            }
 
-    shop_settings = getattr(request.user, 'shopsettings', None)
-    shop_name = shop_settings.shop_name if shop_settings else "My Shop"
+        grouped.setdefault(category, []).append(display_data)
 
     grouped = dict(sorted(grouped.items()))
+    shop_settings = getattr(request.user, 'shopsettings', None)
+    shop_name = shop_settings.shop_name if shop_settings else "Autosthetics"
 
     return render(request, 'inventory/daily_detail.html', {
         'snapshot': snapshot,
         'grouped': grouped,
         'shop_name': shop_name,
     })
-    
 
 
 @login_required

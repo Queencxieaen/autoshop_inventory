@@ -89,49 +89,20 @@ class StockMovement(models.Model):
         
         if is_new:
             with transaction.atomic():
-                old_qty = self.item.quantity
-                actual_delta = 0
-
-                # 1. Update the Item Balance based on Reason
+                # 1. Update the Item Balance strictly
                 if self.reason == 'add':
-                    actual_delta = self.quantity
                     self.item.quantity += self.quantity
                 elif self.reason == 'remove':
-                    actual_delta = -self.quantity
                     self.item.quantity -= self.quantity
                 elif self.reason == 'adjust':
-                    # Calculate difference for the snapshot columns
-                    actual_delta = self.quantity - old_qty
                     self.item.quantity = self.quantity
                 
                 self.item.save()
 
-                # 2. Daily Snapshot Synchronization
-                from django.utils.timezone import localdate
-                today = localdate()
-                snapshot, _ = DailySnapshot.objects.get_or_create(date=today)
-                
-                # Determine how much to increment IN and OUT columns
-                change_in = actual_delta if actual_delta > 0 else 0
-                change_out = abs(actual_delta) if actual_delta < 0 else 0
-
-                item_snap, created = DailyItemSnapshot.objects.get_or_create(
-                    snapshot=snapshot,
-                    item=self.item,
-                    defaults={
-                        'beginning_quantity': old_qty,
-                        'stock_in': change_in,
-                        'stock_out': change_out,
-                        'ending_quantity': self.item.quantity
-                    }
-                )
-
-                if not created:
-                    # Update existing snapshot totals
-                    item_snap.stock_in += change_in
-                    item_snap.stock_out += change_out
-                    item_snap.ending_quantity = self.item.quantity
-                    item_snap.save()
+                # 2. Trigger the Utility to rebuild the Daily Report correctly
+                # This ensures the math (Beginning + In - Out) is consistent everywhere.
+                from .utils import create_snapshot
+                create_snapshot(timezone.localdate())
 
         super().save(*args, **kwargs)
 

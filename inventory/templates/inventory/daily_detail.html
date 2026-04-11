@@ -132,7 +132,8 @@
                     <tbody>
                         {% for item in items %}
                         <tr>
-                            <td class="fw-bold text-dark item-name">{{ item.item.name }}</td>
+                            <td class="fw-bold text-dark item-name"> 
+                                {% if item.item.name %}{{ item.item.name }}{% else %}{{ item.item.name }}{% endif %}</td>
                             <td class="text-center text-secondary">{{ item.beginning_quantity }}</td>
                             <td class="text-center"><span class="text-success">{% if item.stock_in > 0 %}+{% endif %}{{ item.stock_in }}</span></td>
                             <td class="text-center"><span class="text-danger">{% if item.stock_out > 0 %}-{% endif %}{{ item.stock_out }}</span></td>

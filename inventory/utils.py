@@ -4,33 +4,26 @@ from django.db.models import Sum
 from inventory.models import Item, DailySnapshot, DailyItemSnapshot, StockMovement
 
 
-# inventory/utils.py
 
 def create_snapshot(snapshot_date=None):
     snapshot_date = snapshot_date or date.today()
     snapshot, _ = DailySnapshot.objects.get_or_create(date=snapshot_date)
-
-    yesterday_date = snapshot_date - timedelta(days=1)
-    previous_snapshot = DailySnapshot.objects.filter(date=yesterday_date).first()
 
     items = Item.objects.all()
     start = datetime.combine(snapshot_date, datetime.min.time())
     end = start + timedelta(days=1)
 
     for item in items:
-        # FIXED: Beginning is strictly from yesterday's record. 
-        # If no record exists, it MUST be 0 to avoid double-counting today's stock.
-        beginning = 0
-        if previous_snapshot:
-            prev_item = DailyItemSnapshot.objects.filter(
-                snapshot=previous_snapshot, item=item
-            ).first()
-            beginning = prev_item.ending_quantity if prev_item else 0
-        else:
-            # If the entire system has no previous snapshots, start at 0
-            beginning = 0
+        # 1. Look back for the TRUE starting point (not just yesterday)
+        last_record = DailyItemSnapshot.objects.filter(
+            item=item, 
+            snapshot__date__lt=snapshot_date
+        ).order_by('-snapshot__date').first()
+        
+        # Beginning is last day's ending. If brand new, use current Item.quantity
+        beginning = last_record.ending_quantity if last_record else item.quantity
 
-        # Calculate Movements for the specific date
+        # 2. Sum today's activity
         stock_in = StockMovement.objects.filter(
             item=item, reason="add", date__range=(start, end)
         ).aggregate(total=Sum('quantity'))['total'] or 0
@@ -39,9 +32,11 @@ def create_snapshot(snapshot_date=None):
             item=item, reason="remove", date__range=(start, end)
         ).aggregate(total=Sum('quantity'))['total'] or 0
 
-        # Calculate Ending: 0 + 31 - 0 = 31
+        # 3. THE CRITICAL FIX: Perform the math
+        # Ending = 85 + 290 - 135 = 240
         ending = beginning + stock_in - stock_out
 
+        # 4. Save the update
         DailyItemSnapshot.objects.update_or_create(
             snapshot=snapshot,
             item=item,
@@ -53,6 +48,7 @@ def create_snapshot(snapshot_date=None):
             }
         )
     return snapshot
+
 
 
 def ensure_daily_snapshots():
