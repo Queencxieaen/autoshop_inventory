@@ -346,14 +346,12 @@ def low_stock_page(request):
     })
 
 
-
-
 @login_required
 def adjust_stock(request, pk=None):
     selected_item = get_object_or_404(Item, pk=pk) if pk else None
     today = timezone.localtime(timezone.now()).date()
     
-    # 1. SEARCH LOGIC (Optimized with select_related for Category)
+    # 1. SEARCH & FILTER LOGIC
     query = request.GET.get('q', '')
     items = Item.objects.select_related('category').all().order_by('name')
 
@@ -364,7 +362,7 @@ def adjust_stock(request, pk=None):
             Q(compatible_units__icontains=query)
         ).distinct()
 
-    # 2. POST HANDLING
+    # 2. POST HANDLING (Simplified to let Model handle the logic)
     if request.method == "POST":
         item_id = request.POST.get('item')
         target_item = selected_item if selected_item else get_object_or_404(Item, id=item_id)
@@ -372,50 +370,60 @@ def adjust_stock(request, pk=None):
         try:
             quantity = int(request.POST.get('quantity', 0))
             reason = request.POST.get('reason')
+            remarks = request.POST.get('remarks', '')
 
+            # Validation: Simple check before attempting save
             if reason == 'remove' and quantity > target_item.quantity:
-                messages.error(request, f"Insufficient stock for {target_item.name}.")
+                messages.error(request, f"Insufficient stock. {target_item.name} only has {target_item.quantity} available.")
                 return redirect(request.path)
 
-            with transaction.atomic():
-                StockMovement.objects.create(
-                    item=target_item,
-                    quantity=quantity,
-                    reason=reason,
-                    user=request.user,
-                    remarks=request.POST.get('remarks', '')
-                )
+            # NOTE: We do NOT update target_item.quantity here.
+            # Your StockMovement.save() method in models.py handles:
+            # - Updating the Item balance
+            # - Updating the Daily Snapshot/Daily Audit report
+            StockMovement.objects.create(
+                item=target_item,
+                quantity=quantity,
+                reason=reason,
+                user=request.user,
+                remarks=remarks
+            )
 
             messages.success(request, f"Terminal Sync complete for {target_item.name}.")
             return redirect('adjust_stock')
+            
         except ValueError:
-            messages.error(request, "Invalid quantity entered.")
+            messages.error(request, "Invalid quantity. Please enter a whole number.")
+        except Exception as e:
+            messages.error(request, f"System Error: {str(e)}")
 
-    # 3. DASHBOARD METRICS (The "Interesting" Data)
-    # Get items where quantity is <= 5 (or your custom threshold)
+    # 3. DASHBOARD METRICS (Stats Cards)
+    # Low stock items (Threshold from ShopSettings or hardcoded 5)
     critical_items = Item.objects.filter(quantity__lte=5).select_related('category').order_by('quantity')[:5]
     
-    # Calculate Total Shop Value
+    # Total Inventory Valuation
     total_value = Item.objects.aggregate(
         total=Sum(F('price') * F('quantity'))
     )['total'] or 0
 
-    # Counts for the Stats cards
     low_stock_count = Item.objects.filter(quantity__lte=5).count()
-    recent_movements = StockMovement.objects.filter(date__date=today).select_related('item').order_by('-date')[:5]
+    
+    # Recent Activity Feed
+    recent_movements = StockMovement.objects.filter(
+        date__date=today
+    ).select_related('item', 'user').order_by('-date')[:5]
 
     return render(request, "inventory/adjust_stock.html", {
         "items": items,
         "selected_item": selected_item,
         "today": today,
         "query": query,
-        # New Command Center Data
         "critical_items": critical_items,
         "low_stock_count": low_stock_count,
         "total_value": total_value,
         "recent_movements": recent_movements,
     })
-
+    
 # ===========================
 # REPORTS
 # ===========================
