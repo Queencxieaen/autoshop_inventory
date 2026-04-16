@@ -1040,16 +1040,13 @@ def custom_summary(request):
 @require_POST
 @login_required
 def ajax_stock_movement(request):
-    """
-    Adjust stock via AJAX and update daily snapshot.
-    """
     item_id = request.POST.get('item_id')
     quantity_str = request.POST.get('quantity', '0')
-    reason = request.POST.get('reason', 'adjust')  # default adjust
+    reason = request.POST.get('reason', 'adjust')
 
-    # Validate parameters
     if not item_id:
         return JsonResponse({'success': False, 'error': 'Item ID not provided.'})
+
     try:
         quantity = int(quantity_str)
         if quantity <= 0:
@@ -1063,42 +1060,10 @@ def ajax_stock_movement(request):
     try:
         item = Item.objects.get(pk=item_id)
 
-        # Get or create today's snapshot
-        today = timezone.localdate()
-        snapshot = create_snapshot(today)
+        # ❌ REMOVE manual quantity updates
+        # ❌ REMOVE snapshot manipulation
 
-        # Get or create snapshot record for this item
-        snapshot_item, _ = DailyItemSnapshot.objects.get_or_create(
-            snapshot=snapshot,
-            item=item,
-            defaults={
-                'beginning_quantity': item.quantity if reason != 'add' else item.quantity - quantity,
-                'stock_in': 0,
-                'stock_out': 0,
-                'ending_quantity': item.quantity,
-            }
-        )
-
-        # Apply stock change
-        if reason == 'add':
-            item.quantity += quantity
-            snapshot_item.stock_in += quantity
-        else:  # remove or adjust
-            if quantity > item.quantity:
-                return JsonResponse({'success': False, 'error': 'Stock out exceeds available quantity.'})
-            item.quantity -= quantity
-            snapshot_item.stock_out += quantity
-
-        # Prevent negative stock
-        if item.quantity < 0:
-            item.quantity = 0
-
-        # Save updates
-        item.save()
-        snapshot_item.ending_quantity = snapshot_item.beginning_quantity + snapshot_item.stock_in - snapshot_item.stock_out
-        snapshot_item.save()
-
-        # Record stock movement
+        # ✅ ONLY CREATE STOCK MOVEMENT
         StockMovement.objects.create(
             item=item,
             quantity=quantity,
@@ -1106,10 +1071,14 @@ def ajax_stock_movement(request):
             user=request.user
         )
 
+        # ✅ Refresh item from DB (already updated by model)
+        item.refresh_from_db()
+
         return JsonResponse({'success': True, 'new_quantity': item.quantity})
 
     except Item.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Item not found.'})
+
         
 @csrf_exempt
 @require_GET
@@ -1237,7 +1206,6 @@ def set_new_password(request):
     return render(request, "inventory/set_new_password.html")
 
 
-# views.py
 
 # ===========================
 # INTERN MAINTENANCE PANEL
