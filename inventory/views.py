@@ -81,7 +81,9 @@ def user_logout(request):
 def home(request):
     return redirect('dashboard')
 
-
+def fix_april_17(request):
+    create_snapshot(date(2026, 4, 17))
+    return HttpResponse("April 17 snapshot recreated successfully!")
 # ===========================
 # DASHBOARD
 # ===========================
