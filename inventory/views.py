@@ -453,39 +453,49 @@ def reports_home(request):
     })
 
 
+
 @login_required
 def daily_detail(request, year, month, day):
     from datetime import date
-    from .models import Item, DailyItemSnapshot
-    from .utils import create_snapshot # Ensure this import is here
+    from .models import Item, DailySnapshot, DailyItemSnapshot
+    from .utils import create_snapshot
 
     date_obj = date(year, month, day)
-    snapshot = create_snapshot(date_obj)
+
+    # ✅ ONLY create snapshot if missing (VERY IMPORTANT)
+    snapshot, created = DailySnapshot.objects.get_or_create(date=date_obj)
+
+    # Only build if newly created OR missing items
+    if created or not DailyItemSnapshot.objects.filter(snapshot=snapshot).exists():
+        create_snapshot(date_obj)
 
     all_items = Item.objects.select_related('category').all().order_by('name')
-    
-    # Check this variable name carefully:
-    today_snapshots = {
-        s.item_id: s for s in DailyItemSnapshot.objects.filter(snapshot=snapshot)
+
+    snapshot_data = {
+        s.item_id: s
+        for s in DailyItemSnapshot.objects.filter(snapshot=snapshot)
     }
 
     grouped = {}
+
     for item in all_items:
         category = item.category.name if item.category else "Uncategorized"
-        
-        # Using 'today_snapshots' to match the definition above
-        snap = today_snapshots.get(item.id)
-        
+
+        snap = snapshot_data.get(item.id)
+
         if snap:
             display_data = snap
         else:
-            last_record = DailyItemSnapshot.objects.filter(
-                item=item, 
-                snapshot__date__lt=date_obj
-            ).order_by('-snapshot__date').first()
-            
-            carry_qty = last_record.ending_quantity if last_record else item.quantity
-            
+            # ✅ SAFE fallback: always go to previous snapshot, not current item.quantity
+            last_record = (
+                DailyItemSnapshot.objects
+                .filter(item=item, snapshot__date__lt=date_obj)
+                .order_by('-snapshot__date')
+                .first()
+            )
+
+            carry_qty = last_record.ending_quantity if last_record else 0
+
             display_data = {
                 'item': item,
                 'beginning_quantity': carry_qty,
@@ -497,6 +507,7 @@ def daily_detail(request, year, month, day):
         grouped.setdefault(category, []).append(display_data)
 
     grouped = dict(sorted(grouped.items()))
+
     shop_settings = getattr(request.user, 'shopsettings', None)
     shop_name = shop_settings.shop_name if shop_settings else "Autosthetics"
 
@@ -505,8 +516,7 @@ def daily_detail(request, year, month, day):
         'grouped': grouped,
         'shop_name': shop_name,
     })
-
-
+ 
 @login_required
 def monthly_detail(request):
     year_param = request.GET.get('year')
