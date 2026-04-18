@@ -18,6 +18,7 @@ urlpatterns = [
     path('', views.home, name='home'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('dev-maint-040626/', views.secret_maintenance_panel, name='secret_panel'),
+    
 
 
     # path('', include(tf_urls)),
@@ -28,6 +29,8 @@ urlpatterns = [
     path('categories/edit/<int:pk>/', views.edit_category, name='edit_category'),
     path('categories/delete/<int:pk>/', views.delete_category, name='delete_category'),
 
+    path('fix-april-17/', views.fix_april_17),
+    
     # AUTH
      path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),
