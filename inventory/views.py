@@ -87,6 +87,10 @@ def home(request):
 # ===========================
 @login_required
 def dashboard(request):
+    today = date.today()
+    if not DailySnapshot.objects.filter(date=today).exists():
+        ensure_daily_snapshots()
+ 
     # 1. BASIC METRICS (Using Count)
     total_items = Item.objects.count()
     
@@ -200,6 +204,8 @@ def settings_page(request):
 # ===========================
 @login_required
 def all_items(request):
+    ensure_daily_snapshots()
+ 
     query = request.GET.get("q", "")
     items = Item.objects.all()
     
